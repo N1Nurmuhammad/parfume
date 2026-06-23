@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-parfume}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-parfume}
+      - POSTGRES_DB=${POSTGRES_DB:-parfume}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-parfume} -d ${POSTGRES_DB:-parfume}"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build: .
+    ports:
+      - "8090:8090"
+    # The SPA (React + Mantine) is built into the image and served by FastAPI on
+    # :8090. Rebuild the UI after changes with `docker compose up --build`.
+    environment:
+      # All sensitive values come from .env — never hardcoded here.
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://parfume:parfume@db:5432/parfume}
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-720}
+      - ADMIN_LOGIN=${ADMIN_LOGIN:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - APP_TIMEZONE=${APP_TIMEZONE:-Asia/Tashkent}
+      - SMS_PROVIDER=${SMS_PROVIDER:-console}
+      - SMS_POLL_SECONDS=${SMS_POLL_SECONDS:-30}
+      - SMS_MAX_CONCURRENCY=${SMS_MAX_CONCURRENCY:-5}
+      - ESKIZ_EMAIL=${ESKIZ_EMAIL:-}
+      - ESKIZ_PASSWORD=${ESKIZ_PASSWORD:-}
+      - ESKIZ_BASE_URL=${ESKIZ_BASE_URL:-https://notify.eskiz.uz/api}
+      - ESKIZ_FROM=${ESKIZ_FROM:-4546}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:

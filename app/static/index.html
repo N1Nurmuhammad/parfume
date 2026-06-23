@@ -1,0 +1,1587 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Amore Here Sulwhasoo</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root, :root[data-theme="dark"] {
+    --bg: #0e1116; --panel: #161b22; --panel2: #1c232d; --border: #2a323d;
+    --text: #e6edf3; --muted: #8b97a7; --accent: #c69a6a; --accent2: #e0b483;
+    --accentText: #1a1206; --good: #3fb950; --bad: #f85149;
+    --shadow: 0 8px 30px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"] {
+    --bg: #f5f3ef; --panel: #ffffff; --panel2: #f1ede7; --border: #e2dcd2;
+    --text: #2a2622; --muted: #8a8377; --accent: #b07d44; --accent2: #936433;
+    --accentText: #fff; --good: #1a8f3c; --bad: #d23b32;
+    --shadow: 0 8px 30px rgba(90,70,40,.12);
+  }
+  * { box-sizing: border-box; }
+  /* clip (not hidden) prevents stray horizontal scroll on mobile without
+     turning the root into a scroll container — keeps the sticky header working */
+  html, body { overflow-x: clip; max-width: 100%; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); transition: background .2s, color .2s;
+    font-variant-numeric: tabular-nums; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+  button { font: inherit; cursor: pointer; border: none; border-radius: 9px;
+    padding: 9px 15px; background: var(--accent); color: var(--accentText); font-weight: 600; transition: filter .15s, background .15s; }
+  button:hover { filter: brightness(1.07); }
+  button:active { transform: translateY(1px); }
+  button.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  button.ghost:hover { background: var(--panel2); filter: none; }
+  button.danger { background: transparent; color: var(--bad); border: 1px solid var(--border); }
+  button.sm { padding: 5px 10px; font-size: 13px; border-radius: 7px; }
+  button.icon { padding: 7px 9px; }
+  input, select { font: inherit; background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; width: 100%; outline: none; }
+  input:focus, select:focus { border-color: var(--accent); }
+  label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 5px; }
+  table { width: 100%; border-collapse: collapse; }
+  /* full-width data tables scroll inside their panel instead of overflowing it
+     (e.g. the SMS row's action buttons in long-label languages) */
+  .panel > table { display: block; overflow-x: auto; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: 14px; }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  tbody tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--panel2); }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; }
+  .muted { color: var(--muted); } .good { color: var(--good); } .bad { color: var(--bad); }
+  .right { text-align: right; } .nowrap { white-space: nowrap; }
+  th.right, td.right { white-space: nowrap; }
+  .row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+  .grid { display: grid; gap: 14px; }
+
+  #login { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+  #login .panel { padding: 36px; width: 360px; box-shadow: var(--shadow); }
+  #login h1 { margin: 0 0 4px; font-size: 24px; }
+
+  header { display: flex; align-items: center; gap: 18px; padding: 13px 24px;
+    border-bottom: 1px solid var(--border); background: var(--panel); position: sticky; top: 0; z-index: 5; }
+  header .brand { font-weight: 800; font-size: 18px; letter-spacing: .01em; }
+  header .brand span { color: var(--accent2); }
+  nav { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
+  nav button { background: transparent; color: var(--muted); font-weight: 600; }
+  nav button.active { background: var(--panel2); color: var(--text); }
+  header .tools { display: flex; gap: 8px; align-items: center; }
+  header select { width: auto; padding: 7px 9px; }
+  main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+  h2 { font-size: 18px; margin: 0 0 14px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 14px; }
+  .card { padding: 18px; }
+  .card .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .card .v { font-size: 30px; font-weight: 800; margin-top: 7px; line-height: 1.15; }
+  .card .v[data-full] { display: inline-block; }
+  .amt { display: inline-block; }
+  /* generic compact-amount tooltip: shows the full value instantly on hover */
+  [data-full] { position: relative; cursor: help; }
+  [data-full]:hover::after {
+    content: attr(data-full); position: absolute; right: 0; top: calc(100% + 6px);
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 10px; font-size: 13px; font-weight: 700;
+    white-space: nowrap; box-shadow: var(--shadow); z-index: 50; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
+  .presets { display: flex; gap: 6px; }
+  .presets button { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+  .presets button.active { background: var(--accent); color: var(--accentText); border-color: var(--accent); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+  .two > * { min-width: 0; }  /* let grid items shrink so inner tables can scroll */
+  @media (max-width: 860px){ .two { grid-template-columns: 1fr; } }
+  .chart-box { position: relative; height: 280px; }
+  .chart-box.sm { height: 280px; }
+  .card { transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease; }
+  .card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: var(--shadow); }
+
+  /* mobile */
+  @media (max-width: 700px) {
+    header { flex-wrap: wrap; gap: 10px; padding: 10px 14px; }
+    header .brand { font-size: 16px; }
+    nav { order: 3; flex: 1 1 100%; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+    nav button { flex: 0 0 auto; }
+    main { padding: 16px; }
+    h2 { font-size: 16px; }
+    .two { grid-template-columns: 1fr; }
+    .panel table { display: block; overflow-x: auto; white-space: nowrap; }
+    .toolbar { align-items: stretch; }
+    .toolbar .row { width: 100%; }
+    .presets { flex-wrap: wrap; }
+    .modal { padding: 18px; }
+    .pay-row { grid-template-columns: 1fr 58px 1fr auto 30px; gap: 6px; }
+    .pay-row .py-base { display: none; }
+    .item-row { grid-template-columns: 1fr 76px 34px; gap: 6px; }
+    .summary div { font-size: 13px; }
+  }
+  .pad { padding: 18px; }
+  .hidden { display: none !important; }
+  .pill { font-size: 11px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+  .pill.debt { color: var(--accent2); border-color: var(--accent); }
+  .err { color: var(--bad); font-size: 13px; min-height: 18px; }
+
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: grid; place-items: center; z-index: 20; padding: 16px; }
+  .modal { width: 540px; max-width: 96vw; max-height: 90vh; overflow: auto; padding: 24px; box-shadow: var(--shadow); }
+  .modal.wide { width: 680px; }
+  .modal h3 { margin: 0 0 16px; font-size: 19px; }
+  .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+  .item-row { display: grid; grid-template-columns: 1fr 96px 40px; gap: 8px; margin-bottom: 8px; align-items: start; }
+  .pay-row { display: grid; grid-template-columns: 1.1fr 72px 1fr auto auto 32px; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .py-base { font-size: 12px; }
+  .chip { display: inline-block; font-size: 12px; padding: 4px 9px; border-radius: 999px; cursor: pointer;
+    background: var(--panel2); border: 1px solid var(--border); color: var(--text); }
+  .chip:hover { border-color: var(--accent); }
+  .wd { display: flex; gap: 6px; flex-wrap: wrap; }
+  .wd label { display: flex; align-items: center; gap: 4px; margin: 0; padding: 5px 8px; border: 1px solid var(--border);
+    border-radius: 8px; cursor: pointer; color: var(--text); font-size: 13px; }
+  .wd input { width: auto; }
+  .msg-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .summary { display: grid; gap: 6px; padding: 14px 16px; }
+  .summary div { display: flex; justify-content: space-between; font-size: 14px; }
+  .summary .tot { font-size: 17px; font-weight: 800; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 2px; }
+
+  .combo { position: relative; }
+  .combo-list { position: absolute; left: 0; right: 0; top: calc(100% + 4px); background: var(--panel);
+    border: 1px solid var(--border); border-radius: 10px; max-height: 220px; overflow: auto; z-index: 30; box-shadow: var(--shadow); }
+  .combo-item { padding: 9px 12px; cursor: pointer; font-size: 14px; }
+  .combo-item:hover, .combo-item.active { background: var(--panel2); }
+  .combo-empty { padding: 10px 12px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="panel">
+    <h1>Amore Here <span>Sulwhasoo</span></h1>
+    <p class="muted" id="loginSub" style="margin-top:0"></p>
+    <div class="grid">
+      <div><label id="lblLogin"></label><input id="loginUser" autocomplete="username" /></div>
+      <div><label id="lblPass"></label><input id="loginPass" type="password" autocomplete="current-password" /></div>
+      <button id="loginBtn" style="width:100%"></button>
+      <div class="err" id="loginErr"></div>
+    </div>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <div class="brand">Amore Here  <span>Sulwhasoo</span></div>
+    <nav id="nav"></nav>
+    <div class="tools">
+      <span class="muted" id="whoami"></span>
+      <select id="langSel" title="Language">
+        <option value="en">EN</option>
+        <option value="ru">РУ</option>
+        <option value="uz">ЎЗ</option>
+      </select>
+      <button class="ghost icon" id="themeBtn" title="Theme"></button>
+      <button class="ghost sm" id="logoutBtn"></button>
+    </div>
+  </header>
+  <main>
+    <section id="tab-dashboard"></section>
+    <section id="tab-orders" class="hidden"></section>
+    <section id="tab-products" class="hidden"></section>
+    <section id="tab-clients" class="hidden"></section>
+    <section id="tab-payment" class="hidden"></section>
+    <section id="tab-currencies" class="hidden"></section>
+    <section id="tab-expenses" class="hidden"></section>
+    <section id="tab-admins" class="hidden"></section>
+    <section id="tab-sms" class="hidden"></section>
+  </main>
+</div>
+
+<div id="modalRoot"></div>
+
+<script>
+// ───────────────────────── i18n ─────────────────────────
+const I18N = {
+  en: {
+    login_sub: "Sign in to the dashboard", login: "Login", password: "Password",
+    sign_in: "Sign in", invalid_creds: "Invalid login or password", logout: "Log out",
+    nav_dashboard: "Dashboard", nav_orders: "Orders", nav_products: "Products",
+    nav_clients: "Clients", nav_payment: "Payment types", nav_admins: "Admins",
+    add_admin: "Add admin", del_admin: "Delete this admin?", you: "you",
+    pt_cash: "Cash", pt_card: "Card", pt_transfer: "Transfer", pt_debt: "Debt",
+    superuser: "Superuser", sup_hint: "Superuser (can manage admins)",
+    analytics: "Analytics", from: "From", to: "To", apply: "Apply",
+    today: "Today", last7: "7 days", last30: "30 days", this_month: "This month",
+    revenue: "Revenue", profit: "Profit", orders: "Orders", items_sold: "Items sold",
+    avg_order: "Avg order", outstanding_debt: "Outstanding debt",
+    revenue_profit: "Revenue & profit", by_payment: "By payment type",
+    top_products: "Top products", debt_issued: "Debt issued",
+    payments_collected: "Payments collected", no_sales: "No sales in this period.",
+    no_debt: "No outstanding debt 🎉",
+    product: "Product", qty: "Qty", stock: "Stock", price: "Price",
+    cargo_cost: "Cargo cost", sale_price: "Sale price", purchase: "Cargo cost (purchase)",
+    new_order: "New order", add_product: "Add product", add_client: "Add client",
+    add_type: "Add type", edit: "Edit", delete: "Delete", cancel: "Cancel", save: "Save",
+    name: "Name", phone: "Phone number", birth_date: "Birth date", balance: "Balance", debt: "Debt",
+    bal_action: "Balance", record_payment: "Record payment / adjustment",
+    balance_history: "Balance history", current_balance: "Current balance", owes: "owes",
+    amount: "Amount", amount_hint: "Amount (+ pays debt, − deduct)", reason: "Reason",
+    note: "Note", optional: "optional", payment: "payment", adjustment: "adjustment",
+    record_entry: "Record entry", when: "When", change: "Change", after: "After", by: "By",
+    history: "History", no_activity: "No balance activity.",
+    payment_type: "Payment type", debt_type_q: "Debt type (charges client balance)",
+    cashlike: "cash-like", time: "Time", created_by: "Created by",
+    client: "Client", discount: "Discount", discount_amount: "Discount amount",
+    subtotal: "Subtotal", total: "Total", remaining: "Remaining", to_allocate: "to allocate",
+    items: "Items", payments: "Payments", add_item: "Add item", add_payment: "Add payment",
+    select_product: "Search product…", select_client: "Search client…",
+    create_order: "Create order", fill: "Fill",
+    debt_warning: "A debt payment line is added to the client's balance.",
+    payments_must_sum: "Payments must sum to the total.",
+    pay_sum_msg: "Payments ({a}) must sum to the total ({b}).",
+    need_entities: "Add at least one product and payment type first (you can add a client right here).",
+    name_phone_required: "Name and phone are required.",
+    no_products: "No products yet.", no_clients: "No clients yet.",
+    no_types: "No payment types yet.", no_orders: "No orders yet.",
+    del_product: "Delete this product?", del_client: "Delete this client?",
+    del_type: "Delete this payment type?", enter_amount: "Enter an amount",
+    no_match: "No matches",
+    err_duplicate: "This value already exists.",
+    err_in_use: "This record is still in use and cannot be deleted.",
+    err_conflict: "The request conflicts with existing data.",
+    cargo: "Cargo", full_price: "Full price", cost: "Cost",
+    nav_currencies: "Currencies", currency: "Currency", code: "Code", base: "Base",
+    add_currency: "Add currency", del_currency: "Delete this currency?",
+    no_currencies: "No currencies.", daily_rates: "Daily rates",
+    rate: "Rate (so'm per 1)", rate_date: "Date", save_rates: "Save rates",
+    rates_saved: "Rates saved", no_rate: "no rate", converted: "= ",
+    nav_sms: "SMS", new_broadcast: "New broadcast", message: "Message",
+    audience: "Audience", aud_all: "All clients", aud_debtors: "Debtors",
+    aud_birthdays: "Birthdays today", aud_custom: "Custom numbers",
+    custom_numbers: "Phone numbers (one per line)", recipients: "Recipients",
+    insert: "Insert", segments: "segments", chars: "chars",
+    schedule: "Schedule", sched_once: "One time", sched_recurring: "Recurring",
+    freq: "Frequency", daily: "Daily", weekly: "Weekly", monthly: "Monthly",
+    custom_cron: "Custom (cron)", at_time: "Time", on_days: "On days",
+    day_of_month: "Day of month", cron_expr: "Cron expression",
+    ends_at: "End date (optional)", max_runs: "Max sends (optional)",
+    next_run: "Next run", status: "Status", st_scheduled: "Scheduled",
+    st_sending: "Sending", st_done: "Done", st_failed: "Failed", st_canceled: "Canceled",
+    send_now: "Send now", cancel_bc: "Cancel this broadcast?", view: "View",
+    delivery_log: "Delivery log", sent: "Sent", no_broadcasts: "No broadcasts yet.",
+    no_messages: "No delivery records.", create_broadcast: "Create broadcast",
+    need_message: "Message is required.", need_recipients: "No recipients match.",
+    need_schedule: "Pick a date/time.",
+    del_currency_base: "The base currency can't be deleted.",
+    wd_mon: "Mon", wd_tue: "Tue", wd_wed: "Wed", wd_thu: "Thu", wd_fri: "Fri", wd_sat: "Sat", wd_sun: "Sun",
+    cashback: "Cashback", cashback_pct: "Cashback %", cashback_earned: "Cashback earned",
+    available: "Available", is_cashback_q: "Cashback type (redeems client cashback)",
+    cashback_outstanding: "Cashback liability", pt_cashback: "Cashback",
+    not_enough_cashback: "Not enough cashback.", r_earn: "earn", r_spend: "spend",
+    cashback_history: "Cashback history", current_cashback: "Current cashback",
+    cashback_amount_hint: "Amount (+ add, − remove)",
+    order_status: "Status", paid_now: "Paid now", delivery: "Delivery", pay_later: "Pay later",
+    st_paid: "Paid", st_delivery: "Delivery", due_date: "Due date", mark_paid: "Mark paid",
+    settle_order: "Settle order", deliveries_outstanding: "Deliveries (unpaid)", all_orders: "All",
+    nav_expenses: "Expenses", add_expense: "Add expense", expense: "Expense",
+    expenses: "Expenses", net_profit: "Net profit", del_expense: "Delete this expense?",
+    no_expenses: "No expenses yet.",
+    set_product_rate: "Set today's {c} rate first (Currencies tab).",
+  },
+  ru: {
+    login_sub: "Войдите в панель", login: "Логин", password: "Пароль",
+    sign_in: "Войти", invalid_creds: "Неверный логин или пароль", logout: "Выйти",
+    nav_dashboard: "Аналитика", nav_orders: "Заказы", nav_products: "Товары",
+    nav_clients: "Клиенты", nav_payment: "Типы оплаты", nav_admins: "Администраторы",
+    add_admin: "Добавить админа", del_admin: "Удалить этого админа?", you: "вы",
+    pt_cash: "Наличные", pt_card: "Карта", pt_transfer: "Перевод", pt_debt: "Долг",
+    superuser: "Суперпользователь", sup_hint: "Суперпользователь (управляет админами)",
+    analytics: "Аналитика", from: "С", to: "По", apply: "Применить",
+    today: "Сегодня", last7: "7 дней", last30: "30 дней", this_month: "Этот месяц",
+    revenue: "Выручка", profit: "Прибыль", orders: "Заказы", items_sold: "Продано шт.",
+    avg_order: "Средний чек", outstanding_debt: "Долг (остаток)",
+    revenue_profit: "Выручка и прибыль", by_payment: "По типам оплаты",
+    top_products: "Топ товаров", debt_issued: "Выдано в долг",
+    payments_collected: "Собрано оплат", no_sales: "Нет продаж за период.",
+    no_debt: "Нет задолженности 🎉",
+    product: "Товар", qty: "Кол-во", stock: "Остаток", price: "Цена",
+    cargo_cost: "Себестоимость", sale_price: "Цена продажи", purchase: "Себестоимость (закуп)",
+    new_order: "Новый заказ", add_product: "Добавить товар", add_client: "Добавить клиента",
+    add_type: "Добавить тип", edit: "Изм.", delete: "Удалить", cancel: "Отмена", save: "Сохранить",
+    name: "Имя", phone: "Телефон", birth_date: "Дата рождения", balance: "Баланс", debt: "Долг",
+    bal_action: "Баланс", record_payment: "Внести оплату / коррекцию",
+    balance_history: "История баланса", current_balance: "Текущий баланс", owes: "долг",
+    amount: "Сумма", amount_hint: "Сумма (+ оплата долга, − списание)", reason: "Причина",
+    note: "Заметка", optional: "необязательно", payment: "оплата", adjustment: "коррекция",
+    record_entry: "Записать", when: "Когда", change: "Изменение", after: "Остаток", by: "Кто",
+    history: "История", no_activity: "Нет операций по балансу.",
+    payment_type: "Тип оплаты", debt_type_q: "Тип «в долг» (списывает с баланса клиента)",
+    cashlike: "обычный", time: "Время", created_by: "Создал",
+    client: "Клиент", discount: "Скидка", discount_amount: "Сумма скидки",
+    subtotal: "Подытог", total: "Итого", remaining: "Осталось", to_allocate: "распределить",
+    items: "Товары", payments: "Оплаты", add_item: "Добавить товар", add_payment: "Добавить оплату",
+    select_product: "Поиск товара…", select_client: "Поиск клиента…",
+    create_order: "Создать заказ", fill: "Всё",
+    debt_warning: "Строка «в долг» добавляется к балансу клиента.",
+    payments_must_sum: "Сумма оплат должна равняться итогу.",
+    pay_sum_msg: "Сумма оплат ({a}) должна равняться итогу ({b}).",
+    need_entities: "Сначала добавьте хотя бы один товар и тип оплаты (клиента можно добавить здесь).",
+    name_phone_required: "Укажите имя и телефон.",
+    no_products: "Товаров пока нет.", no_clients: "Клиентов пока нет.",
+    no_types: "Типов оплаты пока нет.", no_orders: "Заказов пока нет.",
+    del_product: "Удалить товар?", del_client: "Удалить клиента?",
+    del_type: "Удалить тип оплаты?", enter_amount: "Введите сумму",
+    no_match: "Ничего не найдено",
+    err_duplicate: "Такое значение уже существует.",
+    err_in_use: "Запись используется и не может быть удалена.",
+    err_conflict: "Конфликт с существующими данными.",
+    cargo: "Карго", full_price: "Полная цена", cost: "Себестоимость",
+    nav_currencies: "Валюты", currency: "Валюта", code: "Код", base: "Базовая",
+    add_currency: "Добавить валюту", del_currency: "Удалить валюту?",
+    no_currencies: "Валют нет.", daily_rates: "Курсы на день",
+    rate: "Курс (сум за 1)", rate_date: "Дата", save_rates: "Сохранить курсы",
+    rates_saved: "Курсы сохранены", no_rate: "нет курса", converted: "= ",
+    nav_sms: "SMS", new_broadcast: "Новая рассылка", message: "Сообщение",
+    audience: "Аудитория", aud_all: "Все клиенты", aud_debtors: "Должники",
+    aud_birthdays: "Дни рождения сегодня", aud_custom: "Свои номера",
+    custom_numbers: "Номера (по одному в строке)", recipients: "Получатели",
+    insert: "Вставить", segments: "сегм.", chars: "симв.",
+    schedule: "Расписание", sched_once: "Один раз", sched_recurring: "Повторяющаяся",
+    freq: "Частота", daily: "Ежедневно", weekly: "Еженедельно", monthly: "Ежемесячно",
+    custom_cron: "Своё (cron)", at_time: "Время", on_days: "По дням",
+    day_of_month: "День месяца", cron_expr: "Cron-выражение",
+    ends_at: "Дата окончания (необязательно)", max_runs: "Макс. отправок (необязательно)",
+    next_run: "Следующий запуск", status: "Статус", st_scheduled: "Запланировано",
+    st_sending: "Отправляется", st_done: "Готово", st_failed: "Ошибка", st_canceled: "Отменено",
+    send_now: "Отправить сейчас", cancel_bc: "Отменить рассылку?", view: "Просмотр",
+    delivery_log: "Журнал доставки", sent: "Отправлено", no_broadcasts: "Рассылок пока нет.",
+    no_messages: "Нет записей о доставке.", create_broadcast: "Создать рассылку",
+    need_message: "Введите сообщение.", need_recipients: "Нет подходящих получателей.",
+    need_schedule: "Укажите дату/время.",
+    del_currency_base: "Базовую валюту нельзя удалить.",
+    wd_mon: "Пн", wd_tue: "Вт", wd_wed: "Ср", wd_thu: "Чт", wd_fri: "Пт", wd_sat: "Сб", wd_sun: "Вс",
+    cashback: "Кэшбэк", cashback_pct: "Кэшбэк %", cashback_earned: "Начислено кэшбэка",
+    available: "Доступно", is_cashback_q: "Тип кэшбэка (списывает кэшбэк клиента)",
+    cashback_outstanding: "Кэшбэк (обязательство)", pt_cashback: "Кэшбэк",
+    not_enough_cashback: "Недостаточно кэшбэка.", r_earn: "начисление", r_spend: "списание",
+    cashback_history: "История кэшбэка", current_cashback: "Текущий кэшбэк",
+    cashback_amount_hint: "Сумма (+ добавить, − убрать)",
+    order_status: "Статус", paid_now: "Оплачен", delivery: "Доставка", pay_later: "Оплата позже",
+    st_paid: "Оплачен", st_delivery: "Доставка", due_date: "Срок оплаты", mark_paid: "Отметить оплату",
+    settle_order: "Оплатить заказ", deliveries_outstanding: "Доставки (не оплачено)", all_orders: "Все",
+    nav_expenses: "Расходы", add_expense: "Добавить расход", expense: "Расход",
+    expenses: "Расходы", net_profit: "Чистая прибыль", del_expense: "Удалить расход?",
+    no_expenses: "Расходов пока нет.",
+    set_product_rate: "Сначала укажите курс {c} на сегодня (вкладка Валюты).",
+  },
+  uz: {
+    login_sub: "Бошқарув панелига киринг", login: "Логин", password: "Парол",
+    sign_in: "Кириш", invalid_creds: "Логин ёки парол нотўғри", logout: "Чиқиш",
+    nav_dashboard: "Таҳлил", nav_orders: "Буюртмалар", nav_products: "Маҳсулотлар",
+    nav_clients: "Мижозлар", nav_payment: "Тўлов турлари", nav_admins: "Админлар",
+    add_admin: "Админ қўшиш", del_admin: "Бу админ ўчирилсинми?", you: "сиз",
+    pt_cash: "Нақд", pt_card: "Карта", pt_transfer: "Ўтказма", pt_debt: "Қарз",
+    superuser: "Суперфойдаланувчи", sup_hint: "Суперфойдаланувчи (админларни бошқаради)",
+    analytics: "Таҳлил", from: "Дан", to: "Гача", apply: "Қўллаш",
+    today: "Бугун", last7: "7 кун", last30: "30 кун", this_month: "Шу ой",
+    revenue: "Тушум", profit: "Фойда", orders: "Буюртмалар", items_sold: "Сотилди дона",
+    avg_order: "Ўртача чек", outstanding_debt: "Қарз (қолдиқ)",
+    revenue_profit: "Тушум ва фойда", by_payment: "Тўлов турлари бўйича",
+    top_products: "Энг кўп сотилган", debt_issued: "Қарзга берилди",
+    payments_collected: "Йиғилган тўловлар", no_sales: "Бу даврда сотув йўқ.",
+    no_debt: "Қарздорлик йўқ 🎉",
+    product: "Маҳсулот", qty: "Сони", stock: "Қолдиқ", price: "Нарх",
+    cargo_cost: "Таннарх", sale_price: "Сотув нархи", purchase: "Таннарх (харид)",
+    new_order: "Янги буюртма", add_product: "Маҳсулот қўшиш", add_client: "Мижоз қўшиш",
+    add_type: "Тур қўшиш", edit: "Таҳрир", delete: "Ўчириш", cancel: "Бекор", save: "Сақлаш",
+    name: "Исм", phone: "Телефон", birth_date: "Туғилган сана", balance: "Баланс", debt: "Қарз",
+    bal_action: "Баланс", record_payment: "Тўлов / тузатиш киритиш",
+    balance_history: "Баланс тарихи", current_balance: "Жорий баланс", owes: "қарз",
+    amount: "Сумма", amount_hint: "Сумма (+ қарз тўлаш, − ечиш)", reason: "Сабаб",
+    note: "Изоҳ", optional: "ихтиёрий", payment: "тўлов", adjustment: "тузатиш",
+    record_entry: "Сақлаш", when: "Қачон", change: "Ўзгариш", after: "Қолдиқ", by: "Ким",
+    history: "Тарих", no_activity: "Баланс операциялари йўқ.",
+    payment_type: "Тўлов тури", debt_type_q: "Қарз тури (мижоз балансидан ечилади)",
+    cashlike: "оддий", time: "Вақт", created_by: "Яратди",
+    client: "Мижоз", discount: "Чегирма", discount_amount: "Чегирма суммаси",
+    subtotal: "Оралиқ сумма", total: "Жами", remaining: "Қолди", to_allocate: "тақсимлаш",
+    items: "Маҳсулотлар", payments: "Тўловлар", add_item: "Маҳсулот қўшиш", add_payment: "Тўлов қўшиш",
+    select_product: "Маҳсулот қидириш…", select_client: "Мижоз қидириш…",
+    create_order: "Буюртма яратиш", fill: "Тўлиқ",
+    debt_warning: "Қарз тўлови мижоз балансига қўшилади.",
+    payments_must_sum: "Тўловлар йиғиндиси жамига тенг бўлиши керак.",
+    pay_sum_msg: "Тўловлар йиғиндиси ({a}) жамига ({b}) тенг бўлиши керак.",
+    need_entities: "Аввал камида битта маҳсулот ва тўлов турини қўшинг (мижозни шу ерда қўшса бўлади).",
+    name_phone_required: "Исм ва телефон киритилиши шарт.",
+    no_products: "Маҳсулотлар йўқ.", no_clients: "Мижозлар йўқ.",
+    no_types: "Тўлов турлари йўқ.", no_orders: "Буюртмалар йўқ.",
+    del_product: "Маҳсулот ўчирилсинми?", del_client: "Мижоз ўчирилсинми?",
+    del_type: "Тўлов тури ўчирилсинми?", enter_amount: "Суммани киритинг",
+    no_match: "Топилмади",
+    err_duplicate: "Бундай қиймат аллақачон мавжуд.",
+    err_in_use: "Ёзув ишлатилмоқда, ўчириб бўлмайди.",
+    err_conflict: "Мавжуд маълумотлар билан зиддият.",
+    cargo: "Карго", full_price: "Тўлиқ нарх", cost: "Таннарх",
+    nav_currencies: "Валюталар", currency: "Валюта", code: "Код", base: "Асосий",
+    add_currency: "Валюта қўшиш", del_currency: "Валюта ўчирилсинми?",
+    no_currencies: "Валюталар йўқ.", daily_rates: "Кунлик курслар",
+    rate: "Курс (1 бирлик сўмда)", rate_date: "Сана", save_rates: "Курсларни сақлаш",
+    rates_saved: "Курслар сақланди", no_rate: "курс йўқ", converted: "= ",
+    nav_sms: "SMS", new_broadcast: "Янги тарқатма", message: "Хабар",
+    audience: "Аудитория", aud_all: "Барча мижозлар", aud_debtors: "Қарздорлар",
+    aud_birthdays: "Бугунги туғилган кунлар", aud_custom: "Ўз рақамлар",
+    custom_numbers: "Рақамлар (ҳар сатрда битта)", recipients: "Қабул қилувчилар",
+    insert: "Қўйиш", segments: "сегм.", chars: "белги",
+    schedule: "Жадвал", sched_once: "Бир марта", sched_recurring: "Такрорий",
+    freq: "Даврийлик", daily: "Ҳар куни", weekly: "Ҳар ҳафта", monthly: "Ҳар ой",
+    custom_cron: "Махсус (cron)", at_time: "Вақт", on_days: "Кунларда",
+    day_of_month: "Ой куни", cron_expr: "Cron ифода",
+    ends_at: "Тугаш санаси (ихтиёрий)", max_runs: "Макс. юбориш (ихтиёрий)",
+    next_run: "Кейинги юбориш", status: "Ҳолат", st_scheduled: "Режалаштирилган",
+    st_sending: "Юборилмоқда", st_done: "Тайёр", st_failed: "Хато", st_canceled: "Бекор қилинган",
+    send_now: "Ҳозир юбориш", cancel_bc: "Тарқатма бекор қилинсинми?", view: "Кўриш",
+    delivery_log: "Етказиш журнали", sent: "Юборилди", no_broadcasts: "Тарқатмалар йўқ.",
+    no_messages: "Етказиш ёзувлари йўқ.", create_broadcast: "Тарқатма яратиш",
+    need_message: "Хабар киритинг.", need_recipients: "Мос қабул қилувчи йўқ.",
+    need_schedule: "Сана/вақтни танланг.",
+    del_currency_base: "Асосий валютани ўчириб бўлмайди.",
+    wd_mon: "Ду", wd_tue: "Се", wd_wed: "Чо", wd_thu: "Па", wd_fri: "Жу", wd_sat: "Ша", wd_sun: "Як",
+    cashback: "Кэшбэк", cashback_pct: "Кэшбэк %", cashback_earned: "Кэшбэк ҳисобланди",
+    available: "Мавжуд", is_cashback_q: "Кэшбэк тури (мижоз кэшбэгидан ечилади)",
+    cashback_outstanding: "Кэшбэк (мажбурият)", pt_cashback: "Кэшбэк",
+    not_enough_cashback: "Кэшбэк етарли эмас.", r_earn: "ҳисоблаш", r_spend: "ечиш",
+    cashback_history: "Кэшбэк тарихи", current_cashback: "Жорий кэшбэк",
+    cashback_amount_hint: "Сумма (+ қўшиш, − олиб ташлаш)",
+    order_status: "Ҳолат", paid_now: "Тўланган", delivery: "Етказиб бериш", pay_later: "Кейин тўлаш",
+    st_paid: "Тўланган", st_delivery: "Етказиш", due_date: "Тўлов муддати", mark_paid: "Тўланди деб белгилаш",
+    settle_order: "Буюртмани тўлаш", deliveries_outstanding: "Етказишлар (тўланмаган)", all_orders: "Барча",
+    nav_expenses: "Харажатлар", add_expense: "Харажат қўшиш", expense: "Харажат",
+    expenses: "Харажатлар", net_profit: "Соф фойда", del_expense: "Харажат ўчирилсинми?",
+    no_expenses: "Харажатлар йўқ.",
+    set_product_rate: "Аввал бугунги {c} курсини киритинг (Валюталар бўлими).",
+  },
+};
+let lang = localStorage.getItem("parfume_lang") || "en";
+const t = (k) => (I18N[lang] && I18N[lang][k]) || I18N.en[k] || k;
+
+// ───────────────────────── theme ─────────────────────────
+let theme = localStorage.getItem("parfume_theme") || "light";
+function applyTheme() {
+  document.documentElement.setAttribute("data-theme", theme);
+  $("themeBtn").textContent = theme === "dark" ? "☀" : "☾";
+}
+
+// ───────────────────────── api ─────────────────────────
+const TOKEN_KEY = "parfume_token";
+let token = localStorage.getItem(TOKEN_KEY);
+const $ = (id) => document.getElementById(id);
+
+async function api(path, { method = "GET", body } = {}) {
+  const headers = {};
+  if (token) headers["Authorization"] = "Bearer " + token;
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const res = await fetch("/api" + path, {
+    method, headers, body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 401) { logout(); throw new Error(t("invalid_creds")); }
+  if (!res.ok) {
+    let d = res.statusText, code = null;
+    try { const j = await res.json(); d = j.detail || d; code = j.code; } catch (_) {}
+    if (code && I18N[lang] && I18N[lang]["err_" + code]) throw new Error(t("err_" + code));
+    // 422 validation errors come as an array of {loc,msg} — render them readably
+    if (Array.isArray(d)) d = d.map((e) => (e && e.msg) || JSON.stringify(e)).join("; ");
+    throw new Error(typeof d === "string" ? d : JSON.stringify(d));
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+// format numbers in the selected language's locale (RU/UZ use space + comma)
+// uz falls back to ru-RU: same convention (space thousands, comma decimal) and
+// Chromium lacks uz-UZ number formatting data.
+const LOCALE = { en: "en-US", ru: "ru-RU", uz: "ru-RU" };
+const money = (v) => Number(v).toLocaleString(LOCALE[lang] || "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// compact form for chart axes so millions/billions stay readable (e.g. 1.2M)
+const moneyC = (v) => Number(v).toLocaleString(LOCALE[lang] || "en-US", { notation: "compact", maximumFractionDigits: 1 });
+// compact amount with the full value on hover (for tables/lists)
+const moneyT = (v) => `<span class="amt" data-full="${money(v)}">${moneyC(v)}</span>`;
+// ── money input formatting: group thousands with spaces as the user types ──
+function groupDigits(s) {
+  s = String(s);
+  if (!s.trim()) return "";
+  const neg = s.trim().startsWith("-");
+  const clean = s.replace(/[^\d.]/g, "");
+  if (!clean) return neg ? "-" : "";
+  const dot = clean.indexOf(".");
+  const intp = (dot >= 0 ? clean.slice(0, dot) : clean).replace(/^0+(?=\d)/, "");
+  const dec = dot >= 0 ? clean.slice(dot + 1).replace(/[^\d]/g, "").slice(0, 2) : null;
+  const grouped = (intp === "" ? "0" : intp).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return (neg ? "-" : "") + (dec !== null ? grouped + "." + dec : grouped);
+}
+function wireMoney(el) {
+  el.setAttribute("type", "text");
+  el.setAttribute("inputmode", "decimal");
+  el.addEventListener("input", () => {
+    // anchor the cursor by the count of digits to its RIGHT — stable under
+    // left-side group-separator insertions and a leading minus sign.
+    const digitsAfter = el.value.slice(el.selectionStart).replace(/[^\d]/g, "").length;
+    el.value = groupDigits(el.value);
+    let pos = el.value.length, seen = 0;
+    while (pos > 0 && seen < digitsAfter) { if (/\d/.test(el.value[pos - 1])) seen++; pos--; }
+    el.setSelectionRange(pos, pos);
+  });
+  if (el.value) el.value = groupDigits(el.value);
+}
+// numeric value (string) from a formatted money input/element/string
+const moneyVal = (x) => (typeof x === "string" ? x : x.value).replace(/\s/g, "");
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmtDate = (s) => new Date(s).toLocaleString();
+const cleanPhone = (v) => v.replace(/[^\d+\-() ]/g, "");
+// localize the seeded default payment types; custom types show their stored name
+const payName = (name) => {
+  const k = { cash: "pt_cash", card: "pt_card", transfer: "pt_transfer", debt: "pt_debt", cashback: "pt_cashback" }[String(name).trim().toLowerCase()];
+  return k ? t(k) : name;
+};
+
+// ───────────────────────── auth ─────────────────────────
+async function login() {
+  $("loginErr").textContent = "";
+  try {
+    const data = await api("/auth/login", { method: "POST",
+      body: { login: $("loginUser").value, password: $("loginPass").value } });
+    token = data.access_token; localStorage.setItem(TOKEN_KEY, token);
+    await boot();
+  } catch (e) { $("loginErr").textContent = e.message; }
+}
+function logout() {
+  token = null; localStorage.removeItem(TOKEN_KEY);
+  $("app").classList.add("hidden"); $("login").classList.remove("hidden");
+}
+
+// ───────────────────────── shell / nav ─────────────────────────
+const TABS = ["dashboard", "orders", "products", "clients", "payment", "currencies", "expenses", "admins", "sms"];
+const SUPERUSER_TABS = new Set(["admins", "sms"]);
+const RENDER = {};
+let currentTab = "dashboard";
+let meLogin = "";
+let meIsSuperuser = false;
+let PRODUCT_CUR = "USD";  // currency product prices are entered/shown in
+
+function applyStaticText() {
+  $("loginSub").textContent = t("login_sub");
+  $("lblLogin").textContent = t("login");
+  $("lblPass").textContent = t("password");
+  $("loginBtn").textContent = t("sign_in");
+  $("logoutBtn").textContent = t("logout");
+  const labels = { dashboard: "nav_dashboard", orders: "nav_orders",
+    products: "nav_products", clients: "nav_clients", payment: "nav_payment",
+    currencies: "nav_currencies", expenses: "nav_expenses", admins: "nav_admins", sms: "nav_sms" };
+  $("nav").innerHTML = TABS.filter((tb) => !SUPERUSER_TABS.has(tb) || meIsSuperuser).map((tb) =>
+    `<button data-tab="${tb}" class="${tb === currentTab ? "active" : ""}">${t(labels[tb])}</button>`).join("");
+  $("nav").querySelectorAll("button").forEach((b) => b.onclick = () => selectTab(b.dataset.tab));
+}
+function selectTab(tab) {
+  currentTab = tab;
+  $("nav").querySelectorAll("button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+  TABS.forEach((x) => $("tab-" + x).classList.toggle("hidden", x !== tab));
+  RENDER[tab]();
+}
+function refresh() { RENDER[currentTab](); }
+
+async function boot() {
+  $("login").classList.add("hidden"); $("app").classList.remove("hidden");
+  applyTheme();
+  try {
+    const me = await api("/auth/me");
+    meLogin = me.login; meIsSuperuser = !!me.is_superuser; $("whoami").textContent = me.login;
+    try { const h = await api("/health"); if (h.product_currency) PRODUCT_CUR = h.product_currency; } catch (_) {}
+  } catch (_) { return; }
+  applyStaticText();
+  if (SUPERUSER_TABS.has(currentTab) && !meIsSuperuser) currentTab = "dashboard";
+  selectTab(currentTab);
+}
+
+// ───────────────────────── searchable combo ─────────────────────────
+// items: [{id, label}]. Returns markup; wire with wireCombo afterwards.
+let comboSeq = 0;
+function comboHTML(placeholder) {
+  const id = "combo" + (++comboSeq);
+  return `<div class="combo" id="${id}" data-value="">
+    <input class="combo-input" placeholder="${esc(placeholder)}" autocomplete="off">
+    <div class="combo-list hidden"></div></div>`;
+}
+function wireCombo(el, items, onChange) {
+  const input = el.querySelector(".combo-input");
+  const list = el.querySelector(".combo-list");
+  const render = (q) => {
+    const ql = q.trim().toLowerCase();
+    const matches = items.filter((it) => it.label.toLowerCase().includes(ql)).slice(0, 50);
+    list.innerHTML = matches.length
+      ? matches.map((it) => `<div class="combo-item" data-id="${it.id}">${esc(it.label)}</div>`).join("")
+      : `<div class="combo-empty">${t("no_match")}</div>`;
+    list.querySelectorAll(".combo-item").forEach((d) => d.onmousedown = (e) => {
+      e.preventDefault();
+      el.dataset.value = d.dataset.id;
+      input.value = items.find((x) => x.id == d.dataset.id).label;
+      list.classList.add("hidden");
+      onChange && onChange(d.dataset.id);
+    });
+  };
+  input.onfocus = () => { render(input.value); list.classList.remove("hidden"); };
+  input.oninput = () => { el.dataset.value = ""; render(input.value); list.classList.remove("hidden"); onChange && onChange(""); };
+  input.onblur = () => setTimeout(() => list.classList.add("hidden"), 150);
+}
+
+// ───────────────────────── dashboard ─────────────────────────
+function isoDay(d) { return d.toISOString().slice(0, 10); }
+let range = (() => {
+  const to = new Date(); const from = new Date(); from.setDate(from.getDate() - 29);
+  return { from: isoDay(from), to: isoDay(to), preset: "last30" };
+})();
+function rangeQuery() {
+  const p = new URLSearchParams();
+  if (range.from) p.set("date_from", range.from);
+  if (range.to) p.set("date_to", range.to);
+  const s = p.toString(); return s ? "?" + s : "";
+}
+function applyPreset(preset) {
+  const to = new Date(); let from = new Date();
+  if (preset === "today") {}
+  else if (preset === "last7") from.setDate(from.getDate() - 6);
+  else if (preset === "last30") from.setDate(from.getDate() - 29);
+  else if (preset === "this_month") from = new Date(to.getFullYear(), to.getMonth(), 1);
+  range = { from: isoDay(from), to: isoDay(to), preset };
+}
+let charts = {};
+function destroyCharts() { Object.values(charts).forEach((c) => c && c.destroy()); charts = {}; }
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+// destroy any Chart still bound to this canvas (guards against overlapping
+// async re-renders triggered by fast theme/lang switches), then create fresh.
+function mkChart(canvasId, cfg) {
+  const existing = Chart.getChart(canvasId);
+  if (existing) existing.destroy();
+  return new Chart($(canvasId), cfg);
+}
+
+RENDER.dashboard = async function () {
+  const el = $("tab-dashboard");
+  el.innerHTML = `
+    <div class="toolbar">
+      <h2 style="margin:0">${t("analytics")}</h2>
+      <div class="row">
+        <div class="presets" id="presets">
+          ${["today","last7","last30","this_month"].map((p) => `<button data-p="${p}">${t(p)}</button>`).join("")}
+        </div>
+        <div><label>${t("from")}</label><input type="date" id="dFrom" value="${range.from}"></div>
+        <div><label>${t("to")}</label><input type="date" id="dTo" value="${range.to}"></div>
+        <button id="applyRange">${t("apply")}</button>
+        <button id="newOrderDash">+ ${t("new_order")}</button>
+      </div>
+    </div>
+    <div class="cards" id="kpis"></div>
+    <div class="two" style="margin-top:14px">
+      <div class="panel pad"><h2>${t("revenue_profit")}</h2><div class="chart-box"><canvas id="tsChart"></canvas></div></div>
+      <div class="panel pad"><h2>${t("by_payment")}</h2><div class="chart-box sm"><canvas id="payChart"></canvas></div></div>
+    </div>
+    <div class="two" style="margin-top:14px">
+      <div class="panel pad"><h2>${t("top_products")}</h2><div id="topProducts"></div></div>
+      <div class="panel pad"><h2>${t("outstanding_debt")}</h2><div id="debtBox"></div></div>
+    </div>`;
+
+  $("presets").querySelectorAll("button").forEach((b) => {
+    b.classList.toggle("active", b.dataset.p === range.preset);
+    b.onclick = () => { applyPreset(b.dataset.p); RENDER.dashboard(); };
+  });
+  $("applyRange").onclick = () => { range = { from: $("dFrom").value, to: $("dTo").value, preset: null }; RENDER.dashboard(); };
+  $("newOrderDash").onclick = openOrderModal;
+
+  destroyCharts();
+  const q = rangeQuery();
+  const [sum, ts, pay, top, debt] = await Promise.all([
+    api("/analytics/summary" + q), api("/analytics/timeseries" + q),
+    api("/analytics/payment-breakdown" + q), api("/analytics/top-products" + q),
+    api("/analytics/debt" + q)]);
+
+  // money KPIs show a compact value (e.g. 7,5 mln) with the full amount on hover
+  $("kpis").innerHTML = [
+    [t("revenue"), moneyC(sum.revenue), money(sum.revenue)],
+    [t("profit"), moneyC(sum.profit), money(sum.profit)],
+    [t("expenses"), moneyC(sum.expenses), money(sum.expenses)],
+    [t("net_profit"), moneyC(sum.net_profit), money(sum.net_profit)],
+    [t("orders"), sum.order_count, sum.order_count],
+    [t("items_sold"), sum.items_sold, sum.items_sold],
+    [t("avg_order"), moneyC(sum.avg_order_value), money(sum.avg_order_value)],
+    [t("outstanding_debt"), moneyC(debt.outstanding_debt), money(debt.outstanding_debt)],
+    [t("cashback_outstanding"), moneyC(debt.cashback_outstanding), money(debt.cashback_outstanding)],
+    [t("deliveries_outstanding"), moneyC(debt.delivery_outstanding), money(debt.delivery_outstanding)],
+  ].map(([k, short, full]) =>
+    `<div class="card panel"><div class="k">${k}</div><div class="v" data-full="${full}" title="${full}">${short}</div></div>`).join("");
+
+  const tick = cssVar("--muted"), gridc = cssVar("--border"), txt = cssVar("--text");
+  charts.ts = mkChart("tsChart", {
+    type: "line",
+    data: { labels: ts.map((p) => p.day), datasets: [
+      { label: t("revenue"), data: ts.map((p) => p.revenue), borderColor: cssVar("--accent2"), backgroundColor: "rgba(200,150,90,.15)", fill: true, tension: .3 },
+      { label: t("profit"), data: ts.map((p) => p.profit), borderColor: cssVar("--good"), backgroundColor: "rgba(63,185,80,.12)", fill: true, tension: .3 }]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: txt } },
+        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${money(ctx.parsed.y)}` } },
+      },
+      scales: {
+        x: { ticks: { color: tick }, grid: { color: gridc } },
+        y: { ticks: { color: tick, callback: (v) => moneyC(v) }, grid: { color: gridc } },
+      },
+    },
+  });
+  const payColors = ["#4e79a7","#f28e2b","#59a14f","#e15759","#b07aa1","#edc948","#76b7b2","#ff9da7","#9c755f"];
+  const payTotal = pay.reduce((s, p) => s + Number(p.total), 0) || 1;
+  const pct = (v) => (Number(v) / payTotal * 100).toFixed(1);
+  charts.pay = mkChart("payChart", {
+    type: "doughnut",
+    // no segment borders: a dominant slice next to ~0% slices would otherwise
+    // show a white seam. Distinct colors already separate the slices.
+    data: { labels: pay.map((p) => payName(p.name)), datasets: [{ data: pay.map((p) => p.total),
+      backgroundColor: payColors, borderWidth: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: {
+      legend: { labels: { color: txt, generateLabels: (chart) => {
+        const ds = chart.data.datasets[0];
+        return chart.data.labels.map((lab, i) => ({
+          text: `${lab} — ${pct(ds.data[i])}%`, fillStyle: payColors[i % payColors.length],
+          strokeStyle: payColors[i % payColors.length], lineWidth: 0, index: i,
+        }));
+      } } },
+      tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${money(ctx.parsed)} (${pct(ctx.parsed)}%)` } },
+    } },
+  });
+
+  $("topProducts").innerHTML = top.length ? `<table><thead><tr><th>${t("product")}</th><th class="right">${t("qty")}</th><th class="right">${t("revenue")}</th><th class="right">${t("profit")}</th></tr></thead><tbody>${
+    top.map((p) => `<tr><td>${esc(p.name)}</td><td class="right">${p.quantity}</td><td class="right">${money(p.revenue)}</td><td class="right good">${money(p.profit)}</td></tr>`).join("")}</tbody></table>` : `<p class="muted">${t("no_sales")}</p>`;
+
+  $("debtBox").innerHTML = `<div class="row" style="margin-bottom:12px">
+      <div><div class="k muted">${t("debt_issued")}</div><div style="font-size:18px;font-weight:700">${money(debt.debt_issued)}</div></div>
+      <div><div class="k muted">${t("payments_collected")}</div><div style="font-size:18px;font-weight:700">${money(debt.payments_collected)}</div></div>
+    </div>` + (debt.debtors.length ? `<table><thead><tr><th>${t("client")}</th><th>${t("phone")}</th><th class="right">${t("debt")}</th></tr></thead><tbody>${
+      debt.debtors.map((d) => `<tr><td>${esc(d.name)}</td><td class="muted">${esc(d.phone_number)}</td><td class="right bad">${money(d.debt)}</td></tr>`).join("")}</tbody></table>` : `<p class="muted">${t("no_debt")}</p>`)
+    + (debt.deliveries.length ? `<h2 style="font-size:14px;margin:14px 0 8px">${t("deliveries_outstanding")}</h2><table><thead><tr><th>#</th><th>${t("client")}</th><th>${t("due_date")}</th><th class="right">${t("total")}</th></tr></thead><tbody>${
+      debt.deliveries.map((d) => `<tr><td>${d.order_id}</td><td>${esc(d.client_name)}</td><td class="muted">${d.due_date || "—"}</td><td class="right">${money(d.total)}</td></tr>`).join("")}</tbody></table>` : "");
+};
+
+// ───────────────────────── products ─────────────────────────
+RENDER.products = async function () {
+  const el = $("tab-products");
+  const products = await api("/products");
+  el.innerHTML = `
+    <div class="toolbar"><h2 style="margin:0">${t("nav_products")}</h2><button id="addProduct">+ ${t("add_product")}</button></div>
+    <div class="panel"><table><thead><tr><th>${t("name")}</th><th class="right">${t("stock")}</th><th class="right">${t("price")} (${PRODUCT_CUR})</th><th class="right">${t("cargo")} (${PRODUCT_CUR})</th><th class="right">${t("full_price")} (${PRODUCT_CUR})</th><th class="right">${t("cost")} (${PRODUCT_CUR})</th><th></th></tr></thead>
+    <tbody>${products.map((p) => `<tr><td>${esc(p.name)}</td><td class="right">${p.quantity}</td><td class="right">${money(p.price)}</td><td class="right muted">${money(p.cargo)}</td><td class="right" style="font-weight:700">${money(p.full_price)}</td><td class="right muted">${money(p.cargo_price)}</td>
+      <td class="right nowrap"><button class="ghost sm" data-edit="${p.id}">${t("edit")}</button> <button class="danger sm" data-del="${p.id}">${t("delete")}</button></td></tr>`).join("")
+      || `<tr><td colspan="7" class="muted">${t("no_products")}</td></tr>`}</tbody></table></div>`;
+  $("addProduct").onclick = () => productModal();
+  el.querySelectorAll("[data-edit]").forEach((b) => b.onclick = () => productModal(products.find((p) => p.id == b.dataset.edit)));
+  el.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
+    if (!confirm(t("del_product"))) return;
+    try { await api("/products/" + b.dataset.del, { method: "DELETE" }); RENDER.products(); } catch (e) { alert(e.message); }
+  });
+};
+function productModal(p) {
+  openModal(`${p ? t("edit") : t("add_product")}`, `<div class="grid">
+      <div><label>${t("name")}</label><input id="pName" value="${esc(p?.name || "")}"></div>
+      <div><label>${t("stock")}</label><input id="pQty" type="number" min="0" value="${p?.quantity ?? 0}"></div>
+      <div class="row" style="flex-wrap:nowrap">
+        <div style="flex:1"><label>${t("price")}</label><input id="pPrice" class="money" value="${p?.price ?? ""}"></div>
+        <div style="flex:1"><label>${t("cargo")}</label><input id="pCargoFee" class="money" value="${p?.cargo ?? ""}"></div>
+      </div>
+      <div class="panel summary"><div class="tot"><span>${t("full_price")} (${PRODUCT_CUR})</span><span id="pFull">0.00</span></div></div>
+      <div><label>${t("cost")}</label><input id="pCargo" class="money" value="${p?.cargo_price ?? ""}"></div>
+    </div>`, async () => {
+      const body = { name: $("pName").value.trim(), quantity: +$("pQty").value,
+        price: moneyVal($("pPrice")) || 0, cargo: moneyVal($("pCargoFee")) || 0, cargo_price: moneyVal($("pCargo")) || 0 };
+      await api(p ? "/products/" + p.id : "/products", { method: p ? "PUT" : "POST", body });
+      closeModal(); RENDER.products();
+    });
+  const recalcFull = () => { $("pFull").textContent = money((+moneyVal($("pPrice")) || 0) + (+moneyVal($("pCargoFee")) || 0)); };
+  $("pPrice").oninput = recalcFull; $("pCargoFee").oninput = recalcFull; recalcFull();
+}
+
+// ───────────────────────── clients ─────────────────────────
+RENDER.clients = async function () {
+  const el = $("tab-clients");
+  const clients = await api("/clients");
+  el.innerHTML = `
+    <div class="toolbar"><h2 style="margin:0">${t("nav_clients")}</h2><button id="addClient">+ ${t("add_client")}</button></div>
+    <div class="panel"><table><thead><tr><th>${t("name")}</th><th>${t("phone")}</th><th>${t("birth_date")}</th><th class="right">${t("balance")}</th><th class="right">${t("cashback")}</th><th></th></tr></thead>
+    <tbody>${clients.map((c) => `<tr><td>${esc(c.name)}</td><td class="muted">${esc(c.phone_number)}</td><td class="muted">${c.birth_date || "—"}</td>
+      <td class="right ${c.balance < 0 ? "bad" : c.balance > 0 ? "good" : ""}">${moneyT(c.balance)}</td>
+      <td class="right ${c.cashback > 0 ? "good" : ""}">${moneyT(c.cashback)}</td>
+      <td class="right nowrap"><button class="ghost sm" data-pay="${c.id}">${t("bal_action")}</button> <button class="ghost sm" data-cb="${c.id}">${t("cashback")}</button> <button class="ghost sm" data-edit="${c.id}">${t("edit")}</button> <button class="danger sm" data-del="${c.id}">${t("delete")}</button></td></tr>`).join("")
+      || `<tr><td colspan="6" class="muted">${t("no_clients")}</td></tr>`}</tbody></table></div>`;
+  $("addClient").onclick = () => clientModal();
+  el.querySelectorAll("[data-edit]").forEach((b) => b.onclick = () => clientModal(clients.find((c) => c.id == b.dataset.edit)));
+  el.querySelectorAll("[data-pay]").forEach((b) => b.onclick = () => balanceModal(clients.find((c) => c.id == b.dataset.pay)));
+  el.querySelectorAll("[data-cb]").forEach((b) => b.onclick = () => cashbackModal(clients.find((c) => c.id == b.dataset.cb)));
+  el.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
+    if (!confirm(t("del_client"))) return;
+    try { await api("/clients/" + b.dataset.del, { method: "DELETE" }); RENDER.clients(); } catch (e) { alert(e.message); }
+  });
+};
+function clientModal(c) {
+  openModal(`${c ? t("edit") : t("add_client")}`, `<div class="grid">
+      <div><label>${t("name")}</label><input id="cName" value="${esc(c?.name || "")}"></div>
+      <div><label>${t("phone")}</label><input id="cPhone" value="${esc(c?.phone_number || "+998 ")}" inputmode="tel"></div>
+      <div><label>${t("birth_date")}</label><input id="cBirth" type="date" value="${c?.birth_date || ""}"></div>
+    </div>`, async () => {
+      const body = { name: $("cName").value.trim(), phone_number: $("cPhone").value.trim(), birth_date: $("cBirth").value || null };
+      await api(c ? "/clients/" + c.id : "/clients", { method: c ? "PUT" : "POST", body });
+      closeModal(); RENDER.clients();
+    });
+  $("cPhone").oninput = (e) => { e.target.value = cleanPhone(e.target.value); };
+}
+async function balanceModal(c) {
+  const logs = await api(`/clients/${c.id}/balance-logs`);
+  openModal(`${esc(c.name)} — ${t("balance")}`, `
+    <p>${t("current_balance")}: <strong class="${c.balance < 0 ? "bad" : "good"}">${moneyT(c.balance)}</strong>
+      ${c.balance < 0 ? `<span class="muted">(${t("owes")} ${moneyT(-c.balance)})</span>` : ""}</p>
+    <div class="grid" style="margin:12px 0">
+      <div class="row">
+        <div style="flex:1"><label>${t("amount_hint")}</label><input id="bAmt" class="money"></div>
+        <div style="width:150px"><label>${t("reason")}</label><select id="bReason"><option value="payment">${t("payment")}</option><option value="adjustment">${t("adjustment")}</option></select></div>
+      </div>
+      <div><label>${t("note")}</label><input id="bNote" placeholder="${t("optional")}"></div>
+      <div class="err" id="bErr"></div>
+    </div>
+    <h3 style="font-size:14px">${t("history")}</h3>
+    <table><thead><tr><th>${t("when")}</th><th>${t("reason")}</th><th class="right">${t("change")}</th><th class="right">${t("after")}</th><th>${t("by")}</th></tr></thead>
+    <tbody>${logs.map((l) => `<tr><td class="muted nowrap">${fmtDate(l.created_at)}</td>
+      <td>${esc(l.reason)}${l.order_id ? ` <span class="pill">#${l.order_id}</span>` : ""}${l.note ? `<br><span class="muted" style="font-size:12px">${esc(l.note)}</span>` : ""}</td>
+      <td class="right ${l.change < 0 ? "bad" : "good"}">${money(l.change)}</td><td class="right">${money(l.balance_after)}</td><td class="muted">${esc(l.admin_login)}</td></tr>`).join("")
+      || `<tr><td colspan="5" class="muted">${t("no_activity")}</td></tr>`}</tbody></table>`,
+    async () => {
+      const amt = moneyVal($("bAmt"));
+      if (amt === "" || isNaN(+amt)) { $("bErr").textContent = t("enter_amount"); return; }
+      await api(`/clients/${c.id}/balance`, { method: "POST", body: { change: amt, reason: $("bReason").value, note: $("bNote").value || null } });
+      closeModal(); RENDER.clients();
+    }, t("record_entry"));
+}
+async function cashbackModal(c) {
+  const logs = await api(`/clients/${c.id}/cashback-logs`);
+  const rLabel = (r) => ({ earn: t("r_earn"), spend: t("r_spend"), adjustment: t("adjustment") }[r] || r);
+  openModal(`${esc(c.name)} — ${t("cashback")}`, `
+    <p>${t("current_cashback")}: <strong class="good">${moneyT(c.cashback)}</strong></p>
+    <div class="grid" style="margin:12px 0">
+      <div><label>${t("cashback_amount_hint")}</label><input id="cbAmt" class="money"></div>
+      <div><label>${t("note")}</label><input id="cbNote" placeholder="${t("optional")}"></div>
+      <div class="err" id="cbErr"></div>
+    </div>
+    <h3 style="font-size:14px">${t("cashback_history")}</h3>
+    <table><thead><tr><th>${t("when")}</th><th>${t("reason")}</th><th class="right">${t("change")}</th><th class="right">${t("after")}</th><th>${t("by")}</th></tr></thead>
+    <tbody>${logs.map((l) => `<tr><td class="muted nowrap">${fmtDate(l.created_at)}</td>
+      <td>${rLabel(l.reason)}${l.order_id ? ` <span class="pill">#${l.order_id}</span>` : ""}${l.note ? `<br><span class="muted" style="font-size:12px">${esc(l.note)}</span>` : ""}</td>
+      <td class="right ${l.change < 0 ? "bad" : "good"}">${money(l.change)}</td><td class="right">${money(l.cashback_after)}</td><td class="muted">${esc(l.admin_login)}</td></tr>`).join("")
+      || `<tr><td colspan="5" class="muted">${t("no_activity")}</td></tr>`}</tbody></table>`,
+    async () => {
+      const amt = moneyVal($("cbAmt"));
+      if (amt === "" || isNaN(+amt)) { $("cbErr").textContent = t("enter_amount"); return; }
+      try {
+        await api(`/clients/${c.id}/cashback`, { method: "POST", body: { change: amt, note: $("cbNote").value || null } });
+        closeModal(); RENDER.clients();
+      } catch (e) { $("cbErr").textContent = e.message; }
+    }, t("record_entry"));
+}
+
+// ───────────────────────── payment types ─────────────────────────
+RENDER.payment = async function () {
+  const el = $("tab-payment");
+  const types = await api("/payment-types");
+  el.innerHTML = `
+    <div class="toolbar"><h2 style="margin:0">${t("nav_payment")}</h2><button id="addPay">+ ${t("add_type")}</button></div>
+    <div class="panel"><table><thead><tr><th>${t("name")}</th><th>${t("debt")}?</th><th></th></tr></thead>
+    <tbody>${types.map((x) => `<tr><td>${esc(payName(x.name))}</td><td>${x.is_debt ? `<span class="pill debt">${t("debt")}</span>` : x.is_cashback ? `<span class="pill">${t("cashback")}</span>` : `<span class="pill">${t("cashlike")}</span>`}</td>
+      <td class="right nowrap"><button class="ghost sm" data-edit="${x.id}">${t("edit")}</button> <button class="danger sm" data-del="${x.id}">${t("delete")}</button></td></tr>`).join("")
+      || `<tr><td colspan="3" class="muted">${t("no_types")}</td></tr>`}</tbody></table></div>`;
+  $("addPay").onclick = () => payModal();
+  el.querySelectorAll("[data-edit]").forEach((b) => b.onclick = () => payModal(types.find((x) => x.id == b.dataset.edit)));
+  el.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
+    if (!confirm(t("del_type"))) return;
+    try { await api("/payment-types/" + b.dataset.del, { method: "DELETE" }); RENDER.payment(); } catch (e) { alert(e.message); }
+  });
+};
+function payModal(x) {
+  openModal(`${x ? t("edit") : t("add_type")}`, `<div class="grid">
+      <div><label>${t("name")}</label><input id="ptName" value="${esc(x?.name || "")}"></div>
+      <div><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="ptDebt" style="width:auto" ${x?.is_debt ? "checked" : ""}> ${t("debt_type_q")}</label></div>
+      <div><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="ptCb" style="width:auto" ${x?.is_cashback ? "checked" : ""}> ${t("is_cashback_q")}</label></div>
+    </div>`, async () => {
+      await api(x ? "/payment-types/" + x.id : "/payment-types", { method: x ? "PUT" : "POST", body: { name: $("ptName").value.trim(), is_debt: $("ptDebt").checked, is_cashback: $("ptCb").checked } });
+      closeModal(); RENDER.payment();
+    });
+}
+
+// ───────────────────────── admins ─────────────────────────
+RENDER.admins = async function () {
+  const el = $("tab-admins");
+  const admins = await api("/admins");
+  el.innerHTML = `
+    <div class="toolbar"><h2 style="margin:0">${t("nav_admins")}</h2><button id="addAdmin">+ ${t("add_admin")}</button></div>
+    <div class="panel"><table><thead><tr><th>${t("login")}</th><th></th></tr></thead>
+    <tbody>${admins.map((a) => `<tr><td>${esc(a.login)}${a.login === meLogin ? ` <span class="pill">${t("you")}</span>` : ""}${a.is_superuser ? ` <span class="pill debt">${t("superuser")}</span>` : ""}</td>
+      <td class="right">${a.login === meLogin ? "" : `<button class="danger sm" data-del="${a.id}">${t("delete")}</button>`}</td></tr>`).join("")}</tbody></table></div>`;
+  $("addAdmin").onclick = () => adminModal();
+  el.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
+    if (!confirm(t("del_admin"))) return;
+    try { await api("/admins/" + b.dataset.del, { method: "DELETE" }); RENDER.admins(); } catch (e) { alert(e.message); }
+  });
+};
+function adminModal() {
+  openModal(t("add_admin"), `<div class="grid">
+      <div><label>${t("login")}</label><input id="aLogin" autocomplete="off"></div>
+      <div><label>${t("password")}</label><input id="aPass" type="password" autocomplete="new-password"></div>
+      <div><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="aSuper" style="width:auto"> ${t("sup_hint")}</label></div>
+    </div>`, async () => {
+      await api("/admins", { method: "POST", body: { login: $("aLogin").value.trim(), password: $("aPass").value, is_superuser: $("aSuper").checked } });
+      closeModal(); RENDER.admins();
+    }, t("add_admin"));
+}
+
+// ───────────────────────── orders ─────────────────────────
+let ordersFilter = "";
+RENDER.orders = async function () {
+  const el = $("tab-orders");
+  const orders = await api("/orders" + (ordersFilter ? "?status=" + ordersFilter : ""));
+  const statusCell = (o) => o.status === "delivery"
+    ? `<span class="pill debt">${t("st_delivery")}</span>${o.due_date ? `<br><span class="muted" style="font-size:12px">${o.due_date}</span>` : ""}`
+    : `<span class="pill">${t("st_paid")}</span>`;
+  el.innerHTML = `
+    <div class="toolbar"><h2 style="margin:0">${t("nav_orders")}</h2>
+      <div class="row">
+        <select id="ordFilter" style="width:auto"><option value="">${t("all_orders")}</option><option value="delivery" ${ordersFilter === "delivery" ? "selected" : ""}>${t("st_delivery")}</option></select>
+        <button id="newOrder">+ ${t("new_order")}</button>
+      </div></div>
+    <div class="panel"><table><thead><tr><th>#</th><th>${t("time")}</th><th>${t("client")}</th><th>${t("payments")}</th>
+      <th class="right">${t("cashback")}</th><th class="right">${t("total")}</th><th class="right">${t("profit")}</th><th>${t("order_status")}</th><th>${t("created_by")}</th><th></th></tr></thead>
+    <tbody>${orders.map((o) => `<tr><td>${o.id}</td><td class="muted nowrap">${fmtDate(o.created_at)}</td><td>${esc(o.client_name)}</td>
+      <td>${o.payments.map((p) => `${esc(payName(p.payment_type_name))} ${moneyT(p.amount)}${p.is_debt ? ` <span class="pill debt">${t("debt")}</span>` : ""}${p.is_cashback ? ` <span class="pill">${t("cashback")}</span>` : ""}`).join("<br>") || "—"}</td>
+      <td class="right">${o.cashback_percent}%${Number(o.cashback_earned) ? `<br><span class="good" style="font-size:12px">+${moneyT(o.cashback_earned)}</span>` : ""}</td>
+      <td class="right">${moneyT(o.total)}</td><td class="right good">${o.status === "paid" ? moneyT(o.profit) : "—"}</td>
+      <td class="nowrap">${statusCell(o)}</td><td class="muted">${esc(o.created_by)}</td>
+      <td class="right nowrap">${o.status === "delivery" ? `<button class="ghost sm" data-pay="${o.id}">${t("mark_paid")}</button>` : ""}</td></tr>`).join("")
+      || `<tr><td colspan="10" class="muted">${t("no_orders")}</td></tr>`}</tbody></table></div>`;
+  $("newOrder").onclick = openOrderModal;
+  $("ordFilter").onchange = (e) => { ordersFilter = e.target.value; RENDER.orders(); };
+  el.querySelectorAll("[data-pay]").forEach((b) => b.onclick = () => settleModal(orders.find((o) => o.id == b.dataset.pay)));
+};
+
+async function openOrderModal() {
+  const [clients, products, types, currencies, todayRates] = await Promise.all([
+    api("/clients"), api("/products"), api("/payment-types"),
+    api("/currencies"), api("/currencies/rates")]);
+  // clients can be added inline below, so only products + payment types are required
+  if (!products.length || !types.length) { alert(t("need_entities")); return; }
+  // usable currencies = base (rate 1) + those with a rate set for today
+  const rateById = {};
+  currencies.forEach((c) => { if (c.is_base) rateById[c.id] = 1; });
+  todayRates.forEach((r) => { rateById[r.currency_id] = Number(r.rate); });
+  const usableCur = currencies.filter((c) => rateById[c.id] != null);
+  const baseCur = currencies.find((c) => c.is_base) || usableCur[0];
+  const curOptions = usableCur.map((c) =>
+    `<option value="${c.id}" data-rate="${rateById[c.id]}" ${c.id === baseCur.id ? "selected" : ""}>${esc(c.code)}</option>`).join("");
+  // product prices are in PRODUCT_CUR; convert each line to so'm at today's rate
+  const prodCurObj = currencies.find((c) => c.code === PRODUCT_CUR);
+  const prodRate = prodCurObj ? rateById[prodCurObj.id] : null;
+  if (prodRate == null) { alert(t("set_product_rate").replace("{c}", PRODUCT_CUR)); return; }
+  const prodItems = products.map((p) => ({ id: p.id, label: `${p.name} — ${money(p.full_price)} ${PRODUCT_CUR} (${t("stock")} ${p.quantity})` }));
+  const clientItems = clients.map((c) => ({ id: c.id, label: `${c.name} — ${c.phone_number}` }));
+
+  openModal(t("new_order"), `<div class="grid">
+      <div id="clientField"><label>${t("client")}</label>
+        <div class="row" style="gap:8px;flex-wrap:nowrap">
+          <div style="flex:1">${comboHTML(t("select_client"))}</div>
+          <button type="button" class="ghost nowrap" id="qcToggle">+ ${t("add_client")}</button>
+        </div>
+        <div id="qcForm" class="hidden" style="margin-top:8px">
+          <div class="row" style="gap:8px;flex-wrap:nowrap">
+            <input id="qcName" placeholder="${t("name")}" style="flex:1">
+            <input id="qcPhone" placeholder="${t("phone")}" style="flex:1" inputmode="tel" value="+998 ">
+            <button type="button" id="qcSave" class="nowrap">${t("save")}</button>
+          </div>
+          <div class="err" id="qcErr"></div>
+        </div>
+      </div>
+      <div class="row" style="flex-wrap:nowrap">
+        <div style="flex:1"><label>${t("order_status")}</label>
+          <select id="oStatus"><option value="paid">${t("paid_now")}</option><option value="delivery">${t("delivery")} (${t("pay_later")})</option></select></div>
+        <div style="width:150px"><label>${t("cashback_pct")}</label><input id="oCashback" type="number" min="0" max="100" value="0"></div>
+        <div id="oDueWrap" class="hidden" style="width:160px"><label>${t("due_date")}</label><input type="date" id="oDue"></div>
+      </div>
+      <div><label>${t("items")}</label><div id="oItems"></div><button type="button" class="ghost sm" id="addItem">+ ${t("add_item")}</button></div>
+      <div class="panel summary">
+        <div class="tot"><span>${t("total")}</span><span id="sTot">0.00</span></div>
+        <div><span class="muted">${t("cashback_earned")}</span><span id="sCbEarn" class="good">0.00</span></div>
+      </div>
+      <div id="oPayBlock">
+        <div><label>${t("payments")}</label><div id="oPays"></div><button type="button" class="ghost sm" id="addPay2">+ ${t("add_payment")}</button></div>
+        <div class="panel summary">
+          <div><span class="muted">${t("remaining")} ${t("to_allocate")}</span><span id="sRem" class="bad">0.00</span></div>
+          <div id="cbAvailRow" class="hidden"><span class="muted">${t("cashback")} ${t("available")}</span><span id="cbAvail" class="muted">0.00</span></div>
+        </div>
+        <div class="muted" id="oDebtNote"></div>
+      </div>
+      <div class="err" id="oErr"></div>
+    </div>`, submitOrder, t("create_order"), "wide");
+
+  const clientCombo = $("clientField").querySelector(".combo");
+  let clientCashback = 0;
+  const setClientCashback = (id) => {
+    const c = clients.find((x) => x.id == id);
+    clientCashback = c ? Number(c.cashback) : 0;
+    $("cbAvail").dataset.avail = clientCashback;
+    refreshPayTypes();
+  };
+  wireCombo(clientCombo, clientItems, setClientCashback);
+
+  // inline quick-add client so the user never leaves the order form
+  $("qcToggle").onclick = () => { $("qcForm").classList.toggle("hidden"); $("qcName").focus(); };
+  $("qcPhone").oninput = (e) => { e.target.value = cleanPhone(e.target.value); };
+  $("qcSave").onclick = async () => {
+    $("qcErr").textContent = "";
+    const name = $("qcName").value.trim(), phone = $("qcPhone").value.trim();
+    if (!name || !phone) { $("qcErr").textContent = t("name_phone_required"); return; }
+    try {
+      const c = await api("/clients", { method: "POST", body: { name, phone_number: phone, birth_date: null } });
+      const item = { id: c.id, label: `${c.name} — ${c.phone_number}` };
+      clientItems.unshift(item);
+      clientCombo.dataset.value = c.id;
+      clientCombo.querySelector(".combo-input").value = item.label;
+      setClientCashback(c.id);  // new client has 0 cashback — reset the availability
+      $("qcForm").classList.add("hidden"); $("qcName").value = ""; $("qcPhone").value = "+998 ";
+    } catch (e) { $("qcErr").textContent = e.message; }
+  };
+
+  const oItems = $("oItems"), oPays = $("oPays");
+  const addItemRow = () => {
+    const div = document.createElement("div"); div.className = "item-row";
+    div.innerHTML = `${comboHTML(t("select_product"))}<input class="it-qty" type="number" min="1" value="1"><button type="button" class="danger sm it-rm">✕</button>`;
+    oItems.appendChild(div);
+    wireCombo(div.querySelector(".combo"), prodItems, recalc);
+    div.querySelector(".it-qty").oninput = recalc;
+    div.querySelector(".it-rm").onclick = () => { div.remove(); recalc(); };
+  };
+  const rowRate = (div) => +(div.querySelector(".py-cur").selectedOptions[0]?.dataset.rate || 0);
+  const pyAmt = (r) => +moneyVal(r.querySelector(".py-amt")) || 0;
+  // the Cashback payment type is only offered when the client has cashback to spend
+  const payTypeOptions = () => types.filter((ty) => !ty.is_cashback || clientCashback > 0)
+    .map((ty) => `<option value="${ty.id}" data-debt="${ty.is_debt}" data-cashback="${ty.is_cashback}">${esc(payName(ty.name))}${ty.is_debt ? " ("+t("debt")+")" : ty.is_cashback ? " ("+t("cashback")+")" : ""}</option>`).join("");
+  // cashback is a so'm balance, so lock cashback-type lines to the base currency
+  const syncRowCur = (div) => {
+    const cb = div.querySelector(".py-type").selectedOptions[0]?.dataset.cashback === "true";
+    const cur = div.querySelector(".py-cur");
+    if (cb) { cur.value = baseCur.id; cur.disabled = true; } else { cur.disabled = false; }
+  };
+  const addPayRow = () => {
+    const div = document.createElement("div"); div.className = "pay-row";
+    div.innerHTML = `<select class="py-type">${payTypeOptions()}</select>
+      <select class="py-cur">${curOptions}</select>
+      <input class="py-amt money" placeholder="0.00">
+      <span class="py-base muted nowrap"></span>
+      <button type="button" class="ghost sm py-fill">${t("fill")}</button><button type="button" class="danger sm py-rm">✕</button>`;
+    oPays.appendChild(div);
+    wireMoney(div.querySelector(".py-amt"));
+    div.querySelector(".py-amt").oninput = recalc;
+    div.querySelector(".py-type").onchange = () => { syncRowCur(div); recalc(); };
+    div.querySelector(".py-cur").onchange = recalc;
+    syncRowCur(div);
+    div.querySelector(".py-fill").onclick = () => {
+      // top this line up so the order is fully allocated (in base so'm)
+      const amt = div.querySelector(".py-amt");
+      const rate = rowRate(div) || 1;
+      const target = Math.max(0, pyAmt(div) * rate + remainingToAllocate());
+      amt.value = groupDigits((target / rate).toFixed(2));
+      recalc();
+    };
+    div.querySelector(".py-rm").onclick = () => { div.remove(); recalc(); };
+  };
+  // rebuild every row's payment-type options when the client changes, so the
+  // Cashback option appears/disappears with the client's cashback balance
+  const refreshPayTypes = () => {
+    oPays.querySelectorAll(".pay-row").forEach((div) => {
+      const sel = div.querySelector(".py-type"), cur = sel.value;
+      sel.innerHTML = payTypeOptions();
+      if ([...sel.options].some((o) => o.value === cur)) sel.value = cur;
+      syncRowCur(div);
+    });
+    recalc();
+  };
+  const orderTotal = () => {
+    let sub = 0;
+    oItems.querySelectorAll(".item-row").forEach((r) => {
+      const pid = r.querySelector(".combo").dataset.value;
+      const p = products.find((x) => x.id == pid);
+      // product full_price is in PRODUCT_CUR → convert to so'm
+      sub += (p ? Number(p.full_price) * prodRate : 0) * (+r.querySelector(".it-qty").value || 0);
+    });
+    return { sub, total: sub };  // cashback does not reduce the total
+  };
+  // payments are summed in base currency (so'm)
+  const allocated = () => [...oPays.querySelectorAll(".pay-row")].reduce(
+    (s, r) => s + pyAmt(r) * rowRate(r), 0);
+  const remainingToAllocate = () => orderTotal().total - allocated();
+  const recalc = () => {
+    const { total } = orderTotal();
+    $("sTot").textContent = money(total);
+    $("sTot").dataset.v = total.toFixed(2);
+    const cbPct = Math.min(100, Math.max(0, +$("oCashback").value || 0));
+    // per-line converted base + tally cashback used
+    let cashbackUsed = 0;
+    oPays.querySelectorAll(".pay-row").forEach((r) => {
+      const rate = rowRate(r);
+      const base = pyAmt(r) * rate;
+      r.querySelector(".py-base").textContent = rate === 1 ? "" : t("converted") + money(base);
+      if (r.querySelector(".py-type").selectedOptions[0]?.dataset.cashback === "true") cashbackUsed += base;
+    });
+    // earn only on the amount actually paid (excludes redeemed cashback)
+    $("sCbEarn").textContent = money(Math.max(0, total - cashbackUsed) * cbPct / 100);
+    const rem = total - allocated();
+    const remEl = $("sRem"); remEl.textContent = money(rem);
+    remEl.className = Math.abs(rem) < 0.005 ? "good" : "bad";
+    // cashback availability (shown only when cashback is being redeemed)
+    $("cbAvailRow").classList.toggle("hidden", cashbackUsed <= 0);
+    const over = cashbackUsed > clientCashback + 0.005;
+    $("cbAvail").textContent = money(clientCashback) + (cashbackUsed > 0 ? ` (−${money(cashbackUsed)})` : "");
+    $("cbAvail").className = over ? "bad" : "muted";
+    const hasDebt = [...oPays.querySelectorAll(".py-type")].some((s) => s.selectedOptions[0]?.dataset.debt === "true");
+    $("oDebtNote").textContent = hasDebt ? "⚠ " + t("debt_warning") : "";
+  };
+  $("addItem").onclick = addItemRow;
+  $("addPay2").onclick = addPayRow;
+  $("oCashback").oninput = recalc;
+  // delivery (pay-later) orders take no payments now and need a due date
+  $("oStatus").onchange = () => {
+    const delivery = $("oStatus").value === "delivery";
+    $("oPayBlock").classList.toggle("hidden", delivery);
+    $("oDueWrap").classList.toggle("hidden", !delivery);
+  };
+  addItemRow(); addPayRow(); recalc();
+}
+
+async function submitOrder() {
+  const clientId = $("clientField").querySelector(".combo").dataset.value;
+  if (!clientId) { $("oErr").textContent = t("select_client"); return; }
+  const items = [...$("oItems").querySelectorAll(".item-row")].map((r) => ({
+    product_id: +r.querySelector(".combo").dataset.value, quantity: +r.querySelector(".it-qty").value,
+  })).filter((i) => i.product_id && i.quantity > 0);
+  if (!items.length) { $("oErr").textContent = t("select_product"); return; }
+  // delivery order: no payment now, optional due date
+  if ($("oStatus").value === "delivery") {
+    try {
+      await api("/orders", { method: "POST", body: { client_id: +clientId, cashback_percent: $("oCashback").value, items, payments: [], status: "delivery", due_date: $("oDue").value || null } });
+      closeModal(); refresh();
+    } catch (e) { $("oErr").textContent = e.message; }
+    return;
+  }
+  const rate = (r) => +r.querySelector(".py-cur").selectedOptions[0].dataset.rate || 0;
+  const amt = (r) => +moneyVal(r.querySelector(".py-amt")) || 0;
+  const payRows = [...$("oPays").querySelectorAll(".pay-row")].filter((r) => amt(r) > 0);
+  const payments = payRows.map((r) => ({
+    payment_type_id: +r.querySelector(".py-type").value,
+    currency_id: +r.querySelector(".py-cur").value,
+    amount: moneyVal(r.querySelector(".py-amt")),
+  }));
+  if (!payments.length) { $("oErr").textContent = t("payments_must_sum"); return; }
+  // validate the base sum here (translated) so the backend's English error never shows
+  const total = +($("sTot").dataset.v || 0);
+  const paid = payRows.reduce((s, r) => s + amt(r) * rate(r), 0);
+  if (Math.abs(paid - total) >= 0.005) {
+    $("oErr").textContent = t("pay_sum_msg").replace("{a}", money(paid)).replace("{b}", money(total));
+    return;
+  }
+  // cashback redeemed must not exceed the client's available cashback
+  const cbUsed = payRows.reduce((s, r) => r.querySelector(".py-type").selectedOptions[0]?.dataset.cashback === "true" ? s + amt(r) * rate(r) : s, 0);
+  if (cbUsed > +($("cbAvail").dataset.avail || 0) + 0.005) { $("oErr").textContent = t("not_enough_cashback"); return; }
+  try {
+    await api("/orders", { method: "POST", body: { client_id: +clientId, cashback_percent: $("oCashback").value, items, payments, status: "paid" } });
+    closeModal(); refresh();
+  } catch (e) { $("oErr").textContent = e.message; }
+}
+
+async function settleModal(order) {
+  const [types, currencies, todayRates, client] = await Promise.all([
+    api("/payment-types"), api("/currencies"), api("/currencies/rates"),
+    api("/clients/" + order.client_id),
+  ]);
+  const rateById = {};
+  currencies.forEach((c) => { if (c.is_base) rateById[c.id] = 1; });
+  todayRates.forEach((r) => { rateById[r.currency_id] = Number(r.rate); });
+  const usableCur = currencies.filter((c) => rateById[c.id] != null);
+  const baseCur = currencies.find((c) => c.is_base) || usableCur[0];
+  const curOptions = usableCur.map((c) => `<option value="${c.id}" data-rate="${rateById[c.id]}" ${c.id === baseCur.id ? "selected" : ""}>${esc(c.code)}</option>`).join("");
+  const total = Number(order.total);
+  const clientCashback = Number(client.cashback);
+
+  openModal(`${t("settle_order")} #${order.id}`, `<div class="grid">
+    <div class="panel summary"><div class="tot"><span>${t("total")}</span><span>${money(total)}</span></div></div>
+    <div><label>${t("payments")}</label><div id="stPays"></div><button type="button" class="ghost sm" id="stAdd">+ ${t("add_payment")}</button></div>
+    <div class="panel summary">
+      <div><span class="muted">${t("remaining")} ${t("to_allocate")}</span><span id="stRem" class="bad">0.00</span></div>
+      <div id="stCbRow" class="hidden"><span class="muted">${t("cashback")} ${t("available")}</span><span id="stCbAvail" class="muted">0.00</span></div>
+    </div>
+    <div class="muted" id="stDebtNote"></div>
+    <div class="err" id="stErr"></div>
+  </div>`, doSettle, t("mark_paid"), "wide");
+
+  const box = $("stPays");
+  const rowRate = (d) => +(d.querySelector(".py-cur").selectedOptions[0]?.dataset.rate || 0);
+  const pyAmt = (d) => +moneyVal(d.querySelector(".py-amt")) || 0;
+  const allocated = () => [...box.querySelectorAll(".pay-row")].reduce((s, r) => s + pyAmt(r) * rowRate(r), 0);
+  const remaining = () => total - allocated();
+  const recalc = () => {
+    let cbUsed = 0;
+    box.querySelectorAll(".pay-row").forEach((r) => {
+      const rt = rowRate(r), base = pyAmt(r) * rt;
+      r.querySelector(".py-base").textContent = rt === 1 ? "" : t("converted") + money(base);
+      if (r.querySelector(".py-type").selectedOptions[0]?.dataset.cashback === "true") cbUsed += base;
+    });
+    const rem = remaining();
+    const rEl = $("stRem"); rEl.textContent = money(rem); rEl.className = Math.abs(rem) < 0.005 ? "good" : "bad";
+    $("stCbRow").classList.toggle("hidden", cbUsed <= 0);
+    $("stCbAvail").textContent = money(clientCashback) + (cbUsed > 0 ? ` (−${money(cbUsed)})` : "");
+    $("stCbAvail").className = cbUsed > clientCashback + 0.005 ? "bad" : "muted";
+    const hasDebt = [...box.querySelectorAll(".py-type")].some((s) => s.selectedOptions[0]?.dataset.debt === "true");
+    $("stDebtNote").textContent = hasDebt ? "⚠ " + t("debt_warning") : "";
+  };
+  const addRow = () => {
+    const div = document.createElement("div"); div.className = "pay-row";
+    div.innerHTML = `<select class="py-type">${types.filter((ty) => !ty.is_cashback || clientCashback > 0).map((ty) => `<option value="${ty.id}" data-debt="${ty.is_debt}" data-cashback="${ty.is_cashback}">${esc(payName(ty.name))}${ty.is_debt ? " ("+t("debt")+")" : ty.is_cashback ? " ("+t("cashback")+")" : ""}</option>`).join("")}</select>
+      <select class="py-cur">${curOptions}</select>
+      <input class="py-amt money" placeholder="0.00">
+      <span class="py-base muted nowrap"></span>
+      <button type="button" class="ghost sm py-fill">${t("fill")}</button><button type="button" class="danger sm py-rm">✕</button>`;
+    box.appendChild(div);
+    wireMoney(div.querySelector(".py-amt"));
+    const syncCur = () => { const cb = div.querySelector(".py-type").selectedOptions[0]?.dataset.cashback === "true"; const cur = div.querySelector(".py-cur"); if (cb) { cur.value = baseCur.id; cur.disabled = true; } else cur.disabled = false; };
+    div.querySelector(".py-amt").oninput = recalc;
+    div.querySelector(".py-type").onchange = () => { syncCur(); recalc(); };
+    div.querySelector(".py-cur").onchange = recalc;
+    syncCur();
+    div.querySelector(".py-fill").onclick = () => { const a = div.querySelector(".py-amt"); const rt = rowRate(div) || 1; a.value = groupDigits((Math.max(0, pyAmt(div) * rt + remaining()) / rt).toFixed(2)); recalc(); };
+    div.querySelector(".py-rm").onclick = () => { div.remove(); recalc(); };
+  };
+  $("stAdd").onclick = addRow;
+  addRow(); recalc();
+
+  async function doSettle() {
+    const rate = (r) => +r.querySelector(".py-cur").selectedOptions[0].dataset.rate || 0;
+    const rows = [...box.querySelectorAll(".pay-row")].filter((r) => pyAmt(r) > 0);
+    const payments = rows.map((r) => ({ payment_type_id: +r.querySelector(".py-type").value, currency_id: +r.querySelector(".py-cur").value, amount: moneyVal(r.querySelector(".py-amt")) }));
+    if (!payments.length) { $("stErr").textContent = t("payments_must_sum"); return; }
+    const paid = rows.reduce((s, r) => s + pyAmt(r) * rate(r), 0);
+    if (Math.abs(paid - total) >= 0.005) { $("stErr").textContent = t("pay_sum_msg").replace("{a}", money(paid)).replace("{b}", money(total)); return; }
+    const cbUsed = rows.reduce((s, r) => r.querySelector(".py-type").selectedOptions[0]?.dataset.cashback === "true" ? s + pyAmt(r) * rate(r) : s, 0);
+    if (cbUsed > clientCashback + 0.005) { $("stErr").textContent = t("not_enough_cashback"); return; }
+    try { await api(`/orders/${order.id}/pay`, { method: "POST", body: { payments } }); closeModal(); refresh(); }
+    catch (e) { $("stErr").textContent = e.message; }
+  }
+}
+
+// ───────────────────────── currencies ─────────────────────────
+RENDER.currencies = async function () {
+  const el = $("tab-currencies");
+  const currencies = await api("/currencies");
+  el.innerHTML = `
+    <div class="toolbar"><h2 style="margin:0">${t("nav_currencies")}</h2><button id="addCur">+ ${t("add_currency")}</button></div>
+    <div class="two">
+      <div class="panel"><table><thead><tr><th>${t("code")}</th><th>${t("name")}</th><th></th></tr></thead>
+      <tbody>${currencies.map((c) => `<tr><td><strong>${esc(c.code)}</strong>${c.is_base ? ` <span class="pill">${t("base")}</span>` : ""}</td><td class="muted">${esc(c.name)}</td>
+        <td class="right">${c.is_base ? "" : `<button class="danger sm" data-del="${c.id}">${t("delete")}</button>`}</td></tr>`).join("")
+        || `<tr><td colspan="3" class="muted">${t("no_currencies")}</td></tr>`}</tbody></table></div>
+      <div class="panel pad">
+        <h2>${t("daily_rates")}</h2>
+        <div class="row" style="margin-bottom:10px"><div><label>${t("rate_date")}</label><input type="date" id="rDate" value="${isoDay(new Date())}"></div></div>
+        <div id="ratesBox"></div>
+        <div class="actions" style="justify-content:flex-start;margin-top:6px"><button id="saveRates">${t("save_rates")}</button></div>
+        <div class="err" id="rErr"></div>
+      </div>
+    </div>`;
+  $("addCur").onclick = () => currencyModal();
+  el.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
+    if (!confirm(t("del_currency"))) return;
+    try { await api("/currencies/" + b.dataset.del, { method: "DELETE" }); RENDER.currencies(); } catch (e) { alert(e.message); }
+  });
+  const nonBase = currencies.filter((c) => !c.is_base);
+  const loadRates = async () => {
+    const rates = await api("/currencies/rates?date=" + $("rDate").value);
+    const byId = {}; rates.forEach((r) => byId[r.currency_id] = r.rate);
+    $("ratesBox").innerHTML = nonBase.length ? nonBase.map((c) => `
+      <div class="row" style="margin-bottom:8px;flex-wrap:nowrap;align-items:center">
+        <div style="width:64px;font-weight:700">${esc(c.code)}</div>
+        <div style="flex:1"><input class="rate-inp money" data-cur="${c.id}" value="${byId[c.id] ?? ""}" placeholder="${t("rate")}"></div>
+      </div>`).join("") : `<p class="muted">${t("no_currencies")}</p>`;
+    $("ratesBox").querySelectorAll(".money").forEach(wireMoney);
+  };
+  $("rDate").onchange = loadRates;
+  $("saveRates").onclick = async () => {
+    $("rErr").textContent = "";
+    const date = $("rDate").value;
+    try {
+      for (const inp of el.querySelectorAll(".rate-inp")) {
+        const v = moneyVal(inp);
+        if (v === "" || !(+v > 0)) continue;
+        await api("/currencies/rates", { method: "POST", body: { currency_id: +inp.dataset.cur, rate_date: date, rate: v } });
+      }
+      await loadRates(); alert(t("rates_saved"));
+    } catch (e) { $("rErr").textContent = e.message; }
+  };
+  await loadRates();
+};
+function currencyModal() {
+  openModal(t("add_currency"), `<div class="grid">
+    <div><label>${t("code")}</label><input id="curCode" placeholder="USD" maxlength="8"></div>
+    <div><label>${t("name")}</label><input id="curName" placeholder="US Dollar"></div>
+  </div>`, async () => {
+    await api("/currencies", { method: "POST", body: { code: $("curCode").value.trim().toUpperCase(), name: $("curName").value.trim(), is_base: false } });
+    closeModal(); RENDER.currencies();
+  }, t("add_currency"));
+}
+
+// ───────────────────────── expenses ─────────────────────────
+RENDER.expenses = async function () {
+  const el = $("tab-expenses");
+  const list = await api("/expenses");
+  el.innerHTML = `
+    <div class="toolbar"><h2 style="margin:0">${t("nav_expenses")}</h2><button id="addExp">+ ${t("add_expense")}</button></div>
+    <div class="panel"><table><thead><tr><th>${t("time")}</th><th class="right">${t("amount")}</th><th>${t("note")}</th><th>${t("created_by")}</th><th></th></tr></thead>
+    <tbody>${list.map((e) => `<tr>
+      <td class="muted nowrap">${fmtDate(e.created_at)}</td>
+      <td class="right">${moneyT(e.amount_base)}${Number(e.rate) !== 1 ? `<br><span class="muted" style="font-size:12px">${money(e.amount)} ${esc(e.currency_code)}</span>` : ""}</td>
+      <td>${esc(e.note || "—")}</td>
+      <td class="muted">${esc(e.created_by)}</td>
+      <td class="right"><button class="danger sm" data-del="${e.id}">${t("delete")}</button></td></tr>`).join("")
+      || `<tr><td colspan="5" class="muted">${t("no_expenses")}</td></tr>`}</tbody></table></div>`;
+  $("addExp").onclick = expenseModal;
+  el.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
+    if (!confirm(t("del_expense"))) return;
+    try { await api("/expenses/" + b.dataset.del, { method: "DELETE" }); RENDER.expenses(); } catch (e) { alert(e.message); }
+  });
+};
+async function expenseModal() {
+  const [currencies, todayRates] = await Promise.all([api("/currencies"), api("/currencies/rates")]);
+  const rateById = {}; currencies.forEach((c) => { if (c.is_base) rateById[c.id] = 1; });
+  todayRates.forEach((r) => { rateById[r.currency_id] = Number(r.rate); });
+  const usable = currencies.filter((c) => rateById[c.id] != null);
+  const base = currencies.find((c) => c.is_base) || usable[0];
+  openModal(t("add_expense"), `<div class="grid">
+    <div class="row" style="flex-wrap:nowrap">
+      <div style="flex:1"><label>${t("amount")}</label><input id="expAmt" class="money"></div>
+      <div style="width:120px"><label>${t("currency")}</label><select id="expCur">${usable.map((c) => `<option value="${c.id}" ${c.id === base.id ? "selected" : ""}>${esc(c.code)}</option>`).join("")}</select></div>
+    </div>
+    <div><label>${t("note")}</label><input id="expNote" placeholder="${t("optional")}"></div>
+    <div class="err" id="expErr"></div>
+  </div>`, async () => {
+    const amt = moneyVal($("expAmt"));
+    if (amt === "" || !(+amt > 0)) { $("expErr").textContent = t("enter_amount"); return; }
+    try {
+      await api("/expenses", { method: "POST", body: { amount: amt, currency_id: +$("expCur").value, note: $("expNote").value || null } });
+      closeModal(); RENDER.expenses();
+    } catch (e) { $("expErr").textContent = e.message; }
+  }, t("add_expense"));
+}
+
+// ───────────────────────── SMS broadcasts ─────────────────────────
+const audLabel = (a) => ({ all: t("aud_all"), debtors: t("aud_debtors"), birthdays: t("aud_birthdays"), custom: t("aud_custom") }[a] || a);
+function statusPill(s) {
+  const cls = s === "done" ? "good" : s === "failed" ? "bad" : "";
+  const style = cls === "good" ? "color:var(--good);border-color:var(--good)" : cls === "bad" ? "color:var(--bad);border-color:var(--bad)" : "";
+  return `<span class="pill" style="${style}">${t("st_" + s) || s}</span>`;
+}
+RENDER.sms = async function () {
+  const el = $("tab-sms");
+  const list = await api("/sms");
+  el.innerHTML = `
+    <div class="toolbar"><h2 style="margin:0">${t("nav_sms")}</h2><button id="newBc">+ ${t("new_broadcast")}</button></div>
+    <div class="panel"><table><thead><tr><th>#</th><th>${t("message")}</th><th>${t("audience")}</th><th>${t("schedule")}</th><th>${t("next_run")}</th><th>${t("status")}</th><th class="right">${t("sent")}/${t("st_failed")}</th><th>${t("created_by")}</th><th></th></tr></thead>
+    <tbody>${list.map((b) => `<tr>
+      <td>${b.id}</td>
+      <td title="${esc(b.message)}">${esc(b.message.slice(0, 36))}${b.message.length > 36 ? "…" : ""}</td>
+      <td>${audLabel(b.audience)}</td>
+      <td class="muted">${b.schedule_kind === "cron" ? `<code>${esc(b.cron)}</code>` : t("sched_once")}</td>
+      <td class="muted nowrap">${b.status === "scheduled" ? fmtDate(b.scheduled_at) : "—"}</td>
+      <td>${statusPill(b.status)}</td>
+      <td class="right">${b.sent_count}/${b.failed_count}</td>
+      <td class="muted">${esc(b.created_by)}</td>
+      <td class="right nowrap">${b.status === "scheduled" ? `<button class="ghost sm" data-edit="${b.id}" title="${t("edit")}">✎</button> <button class="ghost sm" data-send="${b.id}" title="${t("send_now")}">➤</button> <button class="danger sm" data-cancel="${b.id}" title="${t("cancel")}">✕</button> ` : ""}<button class="ghost sm" data-view="${b.id}" title="${t("view")}">👁</button></td>
+    </tr>`).join("") || `<tr><td colspan="9" class="muted">${t("no_broadcasts")}</td></tr>`}</tbody></table></div>`;
+  $("newBc").onclick = () => broadcastModal();
+  el.querySelectorAll("[data-edit]").forEach((btn) => btn.onclick = () => broadcastModal(list.find((x) => x.id == btn.dataset.edit)));
+  el.querySelectorAll("[data-send]").forEach((b) => b.onclick = async () => {
+    try { await api(`/sms/${b.dataset.send}/send-now`, { method: "POST" }); RENDER.sms(); } catch (e) { alert(e.message); }
+  });
+  el.querySelectorAll("[data-cancel]").forEach((b) => b.onclick = async () => {
+    if (!confirm(t("cancel_bc"))) return;
+    try { await api(`/sms/${b.dataset.cancel}/cancel`, { method: "POST" }); RENDER.sms(); } catch (e) { alert(e.message); }
+  });
+  el.querySelectorAll("[data-view]").forEach((b) => b.onclick = () => viewBroadcast(b.dataset.view));
+};
+function broadcastModal(b) {
+  openModal(b ? `${t("edit")} — ${t("nav_sms")}` : t("new_broadcast"), `<div class="grid">
+    <div><label>${t("message")}</label>
+      <textarea id="bcMsg" rows="3" style="width:100%;resize:vertical"></textarea>
+      <div style="margin-top:6px">${["name", "phone", "debt", "balance"].map((v) => `<span class="chip" data-var="{${v}}">+ {${v}}</span>`).join(" ")}</div>
+      <div class="msg-meta" id="bcMeta"></div>
+    </div>
+    <div class="row" style="flex-wrap:nowrap">
+      <div style="flex:1"><label>${t("audience")}</label>
+        <select id="bcAud"><option value="all">${t("aud_all")}</option><option value="debtors">${t("aud_debtors")}</option><option value="birthdays">${t("aud_birthdays")}</option><option value="custom">${t("aud_custom")}</option></select></div>
+      <div style="flex:1;text-align:right"><label>&nbsp;</label><div class="msg-meta" id="bcCount"></div></div>
+    </div>
+    <div id="bcCustomWrap" class="hidden"><label>${t("custom_numbers")}</label><textarea id="bcCustom" rows="3" style="width:100%"></textarea></div>
+    <div><label>${t("schedule")}</label>
+      <select id="bcKind"><option value="once">${t("sched_once")}</option><option value="cron">${t("sched_recurring")}</option></select></div>
+    <div id="bcOnceWrap"><label>${t("when")}</label><input type="datetime-local" id="bcWhen"></div>
+    <div id="bcCronWrap" class="hidden">
+      <div class="row" style="flex-wrap:nowrap">
+        <div style="flex:1"><label>${t("freq")}</label><select id="bcFreq"><option value="daily">${t("daily")}</option><option value="weekly">${t("weekly")}</option><option value="monthly">${t("monthly")}</option><option value="custom">${t("custom_cron")}</option></select></div>
+        <div style="width:120px"><label>${t("at_time")}</label><input type="time" id="bcTime" value="09:00"></div>
+      </div>
+      <div id="bcWeekWrap" class="hidden" style="margin-top:8px"><label>${t("on_days")}</label><div class="wd" id="bcWeek"></div></div>
+      <div id="bcMonthWrap" class="hidden" style="margin-top:8px"><label>${t("day_of_month")}</label><input type="number" id="bcDom" min="1" max="31" value="1"></div>
+      <div id="bcCustomCronWrap" class="hidden" style="margin-top:8px"><label>${t("cron_expr")}</label><input id="bcCron" placeholder="0 9 * * *"></div>
+      <div class="row" style="flex-wrap:nowrap;margin-top:8px">
+        <div style="flex:1"><label>${t("ends_at")}</label><input type="date" id="bcEnds"></div>
+        <div style="width:130px"><label>${t("max_runs")}</label><input type="number" id="bcMax" min="1"></div>
+      </div>
+    </div>
+    <div class="err" id="bcErr"></div>
+  </div>`, async () => {
+    const body = buildBroadcastBody();
+    if (!body) return;
+    try {
+      if (b) await api("/sms/" + b.id, { method: "PUT", body });
+      else await api("/sms", { method: "POST", body });
+      closeModal(); RENDER.sms();
+    } catch (e) { $("bcErr").textContent = e.message; }
+  }, b ? t("save") : t("create_broadcast"), "wide");
+
+  const WD = [["1", "wd_mon"], ["2", "wd_tue"], ["3", "wd_wed"], ["4", "wd_thu"], ["5", "wd_fri"], ["6", "wd_sat"], ["0", "wd_sun"]];
+  $("bcWeek").innerHTML = WD.map(([v, k]) => `<label><input type="checkbox" class="wd-cb" value="${v}">${t(k)}</label>`).join("");
+
+  const msg = $("bcMsg");
+  document.querySelectorAll("[data-var]").forEach((ch) => ch.onclick = () => {
+    const s = msg.selectionStart ?? msg.value.length, e = msg.selectionEnd ?? s;
+    msg.value = msg.value.slice(0, s) + ch.dataset.var + msg.value.slice(e);
+    msg.focus(); updateMeta();
+  });
+  const updateMeta = () => {
+    const text = msg.value, uni = [...text].some((ch) => ch.charCodeAt(0) > 127);
+    const per = uni ? (text.length > 70 ? 67 : 70) : (text.length > 160 ? 153 : 160);
+    const seg = text.length ? Math.ceil(text.length / per) : 0;
+    $("bcMeta").textContent = `${text.length} ${t("chars")} · ${seg} ${t("segments")}`;
+  };
+  msg.oninput = updateMeta; updateMeta();
+
+  const updateCount = async () => {
+    const aud = $("bcAud").value;
+    let q = "?audience=" + aud;
+    if (aud === "custom") q += "&custom_numbers=" + encodeURIComponent($("bcCustom").value || "");
+    try { const r = await api("/sms/audience-count" + q); $("bcCount").textContent = `${t("recipients")}: ${r.count}`; } catch (_) {}
+  };
+  $("bcAud").onchange = () => { $("bcCustomWrap").classList.toggle("hidden", $("bcAud").value !== "custom"); updateCount(); };
+  $("bcCustom").oninput = updateCount;
+  $("bcKind").onchange = () => {
+    const cron = $("bcKind").value === "cron";
+    $("bcOnceWrap").classList.toggle("hidden", cron);
+    $("bcCronWrap").classList.toggle("hidden", !cron);
+  };
+  $("bcFreq").onchange = () => {
+    const f = $("bcFreq").value;
+    $("bcWeekWrap").classList.toggle("hidden", f !== "weekly");
+    $("bcMonthWrap").classList.toggle("hidden", f !== "monthly");
+    $("bcCustomCronWrap").classList.toggle("hidden", f !== "custom");
+  };
+  // prefill when editing an existing scheduled broadcast
+  if (b) {
+    msg.value = b.message; updateMeta();
+    $("bcAud").value = b.audience;
+    if (b.audience === "custom") { $("bcCustomWrap").classList.remove("hidden"); $("bcCustom").value = b.custom_numbers || ""; }
+    if (b.schedule_kind === "cron") {
+      $("bcKind").value = "cron";
+      $("bcOnceWrap").classList.add("hidden"); $("bcCronWrap").classList.remove("hidden");
+      $("bcFreq").value = "custom"; $("bcCustomCronWrap").classList.remove("hidden");  // edit cron raw
+      $("bcCron").value = b.cron || "";
+      if (b.ends_at) $("bcEnds").value = b.ends_at.slice(0, 10);
+      if (b.max_runs) $("bcMax").value = b.max_runs;
+    } else {
+      const d = new Date(b.scheduled_at), pad = (n) => String(n).padStart(2, "0");
+      $("bcWhen").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+  }
+  updateCount();
+}
+function buildCron() {
+  const [hh, mm] = ($("bcTime").value || "09:00").split(":");
+  const f = $("bcFreq").value;
+  if (f === "custom") return $("bcCron").value.trim();
+  if (f === "daily") return `${+mm} ${+hh} * * *`;
+  if (f === "weekly") {
+    const days = [...document.querySelectorAll(".wd-cb:checked")].map((c) => c.value);
+    return `${+mm} ${+hh} * * ${days.length ? days.join(",") : "*"}`;
+  }
+  if (f === "monthly") return `${+mm} ${+hh} ${+$("bcDom").value || 1} * *`;
+  return "";
+}
+function buildBroadcastBody() {
+  $("bcErr").textContent = "";
+  const message = $("bcMsg").value.trim();
+  if (!message) { $("bcErr").textContent = t("need_message"); return null; }
+  const audience = $("bcAud").value;
+  const body = { message, audience, schedule_kind: $("bcKind").value };
+  if (audience === "custom") body.custom_numbers = $("bcCustom").value;
+  if (body.schedule_kind === "once") {
+    if (!$("bcWhen").value) { $("bcErr").textContent = t("need_schedule"); return null; }
+    body.scheduled_at = new Date($("bcWhen").value).toISOString();
+  } else {
+    const cron = buildCron();
+    if (!cron) { $("bcErr").textContent = t("need_schedule"); return null; }
+    body.cron = cron;
+    if ($("bcEnds").value) body.ends_at = new Date($("bcEnds").value + "T23:59:59").toISOString();
+    if ($("bcMax").value) body.max_runs = +$("bcMax").value;
+  }
+  return body;
+}
+async function viewBroadcast(id) {
+  const [b, msgs] = await Promise.all([api("/sms/" + id), api(`/sms/${id}/messages`)]);
+  openModal(`${t("delivery_log")} #${b.id}`, `
+    <p class="muted" style="white-space:pre-wrap">${esc(b.message)}</p>
+    <div class="row" style="margin:8px 0">
+      <span class="pill">${t("recipients")}: ${b.recipients_count}</span>
+      <span class="pill" style="color:var(--good)">${t("sent")}: ${b.sent_count}</span>
+      <span class="pill" style="color:var(--bad)">${t("st_failed")}: ${b.failed_count}</span></div>
+    <table><thead><tr><th>${t("phone")}</th><th>${t("status")}</th><th>${t("when")}</th></tr></thead>
+    <tbody>${msgs.map((m) => `<tr><td>${esc(m.phone)}</td><td class="${m.status === "failed" ? "bad" : "good"}">${m.status}${m.error ? ` <span class="muted">(${esc(m.error)})</span>` : ""}</td><td class="muted nowrap">${fmtDate(m.created_at)}</td></tr>`).join("")
+      || `<tr><td colspan="3" class="muted">${t("no_messages")}</td></tr>`}</tbody></table>`, null, null, "wide");
+}
+
+// ───────────────────────── modal helpers ─────────────────────────
+function openModal(title, inner, onSave, saveLabel, cls) {
+  const saveBtn = onSave ? `<button id="mSave">${saveLabel || t("save")}</button>` : "";
+  $("modalRoot").innerHTML = `<div class="overlay" id="overlay"><div class="modal panel ${cls || ""}"><h3>${title}</h3>${inner}
+    <div class="actions"><button class="ghost" id="mCancel">${t("cancel")}</button>${saveBtn}</div></div></div>`;
+  $("mCancel").onclick = closeModal;
+  $("overlay").onclick = (e) => { if (e.target.id === "overlay") closeModal(); };
+  if (onSave) $("mSave").onclick = async () => { try { await onSave(); } catch (e) { alert(e.message); } };
+  $("modalRoot").querySelectorAll(".money").forEach(wireMoney);  // space-group money inputs
+  // autofocus the first text field for quicker data entry
+  setTimeout(() => { const f = $("modalRoot").querySelector('input:not([type=checkbox]), select'); if (f) f.focus(); }, 30);
+}
+function closeModal() { $("modalRoot").innerHTML = ""; }
+
+// ───────────────────────── wiring ─────────────────────────
+$("loginBtn").onclick = login;
+$("loginPass").addEventListener("keydown", (e) => { if (e.key === "Enter") login(); });
+$("logoutBtn").onclick = logout;
+$("themeBtn").onclick = () => { theme = theme === "dark" ? "light" : "dark"; localStorage.setItem("parfume_theme", theme); applyTheme(); if (currentTab === "dashboard") RENDER.dashboard(); };
+$("langSel").value = lang;
+$("langSel").onchange = (e) => { lang = e.target.value; localStorage.setItem("parfume_lang", lang); applyStaticText(); refresh(); };
+applyTheme();
+// translate login screen on first load
+$("loginSub").textContent = t("login_sub"); $("lblLogin").textContent = t("login");
+$("lblPass").textContent = t("password"); $("loginBtn").textContent = t("sign_in");
+
+if (token) boot(); else $("login").classList.remove("hidden");
+</script>
+</body>
+</html>
