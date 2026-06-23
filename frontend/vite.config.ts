@@ -16,5 +16,22 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        // Split rarely-changing vendor code into its own chunk. After a deploy
+        // that only touches app code, the browser keeps the cached vendor chunk
+        // and re-downloads just the small app chunk. recharts/@mantine/charts are
+        // intentionally NOT listed here so they stay in the lazy Dashboard chunk.
+        manualChunks: {
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          mantine: [
+            "@mantine/core",
+            "@mantine/hooks",
+            "@mantine/dates",
+            "@mantine/notifications",
+          ],
+        },
+      },
+    },
   },
 });

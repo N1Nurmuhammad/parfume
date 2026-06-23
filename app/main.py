@@ -86,5 +86,14 @@ async def spa(full_path: str) -> FileResponse:
         and candidate.startswith(_STATIC_DIR)
         and os.path.isfile(candidate)
     ):
-        return FileResponse(candidate)
-    return FileResponse(_INDEX)
+        # Files under assets/ have content-hashed names (e.g. index-CZe7vNbF.js),
+        # so they can be cached forever — the name changes on every rebuild. This
+        # turns slow repeat downloads of the ~1 MB bundle into instant 304/cache
+        # hits, which matters a lot on the low-bandwidth VPS link.
+        headers = None
+        if full_path.startswith("assets/"):
+            headers = {"Cache-Control": "public, max-age=31536000, immutable"}
+        return FileResponse(candidate, headers=headers)
+    # index.html itself must never be cached, or clients would keep loading an old
+    # shell that references deleted asset hashes after a deploy.
+    return FileResponse(_INDEX, headers={"Cache-Control": "no-cache"})

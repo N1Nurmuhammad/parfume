@@ -4,6 +4,10 @@ www.amore-sulwhasoo.uz {
 }
 
 amore-sulwhasoo.uz {
+	# Compress responses on the wire. The 1 MB JS bundle drops to ~250 KB,
+	# which is the single biggest load-time win. zstd preferred, gzip fallback.
+	encode zstd gzip
+
 	# Reverse-proxy to the FastAPI app (which also serves the React SPA) over the
 	# internal compose network. Caddy obtains & renews a Let's Encrypt cert for
 	# this domain automatically as long as DNS points here and ports 80/443 are open.

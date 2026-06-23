@@ -1,3 +1,4 @@
+import { lazy, Suspense, type ComponentType } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import {
   AppShell,
@@ -34,15 +35,24 @@ import { useAuth } from "./auth/AuthContext";
 import { useI18n, LANGS, type Lang } from "./i18n";
 import { Login } from "./pages/Login";
 import { DailyRatePrompt } from "./components/DailyRatePrompt";
-import { Dashboard } from "./pages/Dashboard";
-import { Orders } from "./pages/Orders";
-import { Products } from "./pages/Products";
-import { Clients } from "./pages/Clients";
-import { PaymentTypes } from "./pages/PaymentTypes";
-import { Currencies } from "./pages/Currencies";
-import { Expenses } from "./pages/Expenses";
-import { Admins } from "./pages/Admins";
-import { Sms } from "./pages/Sms";
+
+// Each page is code-split into its own chunk so the initial load only fetches the
+// shell + the current page. The Dashboard's recharts/@mantine/charts (the heaviest
+// dependency) is deferred until that tab is actually opened. Pages are named
+// exports, so map them to a default for React.lazy.
+const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
+const Orders = lazy(() => import("./pages/Orders").then((m) => ({ default: m.Orders })));
+const Products = lazy(() => import("./pages/Products").then((m) => ({ default: m.Products })));
+const Clients = lazy(() => import("./pages/Clients").then((m) => ({ default: m.Clients })));
+const PaymentTypes = lazy(() =>
+  import("./pages/PaymentTypes").then((m) => ({ default: m.PaymentTypes })),
+);
+const Currencies = lazy(() =>
+  import("./pages/Currencies").then((m) => ({ default: m.Currencies })),
+);
+const Expenses = lazy(() => import("./pages/Expenses").then((m) => ({ default: m.Expenses })));
+const Admins = lazy(() => import("./pages/Admins").then((m) => ({ default: m.Admins })));
+const Sms = lazy(() => import("./pages/Sms").then((m) => ({ default: m.Sms })));
 
 type TabKey =
   | "dashboard"
@@ -59,7 +69,7 @@ interface TabDef {
   key: TabKey;
   label: string;
   icon: typeof IconLayoutDashboard;
-  Comp: () => JSX.Element;
+  Comp: ComponentType;
   superuser?: boolean;
 }
 
@@ -166,13 +176,21 @@ export function App() {
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          {tabs.map((tb) => (
-            <Route key={tb.key} path={"/" + tb.key} element={<tb.Comp />} />
-          ))}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+        <Suspense
+          fallback={
+            <Center mih="50vh">
+              <Loader />
+            </Center>
+          }
+        >
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            {tabs.map((tb) => (
+              <Route key={tb.key} path={"/" + tb.key} element={<tb.Comp />} />
+            ))}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Suspense>
         <DailyRatePrompt />
       </AppShell.Main>
     </AppShell>
