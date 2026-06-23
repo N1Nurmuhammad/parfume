@@ -1,3 +1,8 @@
+# Redirect www → apex so there's one canonical URL (cert covers both names).
+www.amore-sulwhasoo.uz {
+	redir https://amore-sulwhasoo.uz{uri} permanent
+}
+
 amore-sulwhasoo.uz {
 	# Reverse-proxy to the FastAPI app (which also serves the React SPA) over the
 	# internal compose network. Caddy obtains & renews a Let's Encrypt cert for
