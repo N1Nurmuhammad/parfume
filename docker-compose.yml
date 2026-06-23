@@ -16,8 +16,10 @@ services:
 
   app:
     build: .
+    # Not published to the public internet — Caddy reaches it over the internal
+    # compose network. Bound to localhost only for on-server debugging (curl).
     ports:
-      - "8090:8090"
+      - "127.0.0.1:8090:8090"
     # The SPA (React + Mantine) is built into the image and served by FastAPI on
     # :8090. Rebuild the UI after changes with `docker compose up --build`.
     environment:
@@ -40,5 +42,20 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # persisted TLS certs — don't delete
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:

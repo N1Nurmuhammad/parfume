@@ -1,0 +1,6 @@
+amore-sulwhasoo.uz {
+	# Reverse-proxy to the FastAPI app (which also serves the React SPA) over the
+	# internal compose network. Caddy obtains & renews a Let's Encrypt cert for
+	# this domain automatically as long as DNS points here and ports 80/443 are open.
+	reverse_proxy app:8090
+}
