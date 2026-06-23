@@ -4,7 +4,12 @@ WORKDIR /fe
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
-RUN npm run build
+# Build only the production bundle. We deliberately skip the `tsc --noEmit`
+# type-check that `npm run build` runs first — it's a separate memory-heavy pass
+# that OOM-kills on small (1 GB) VPSes and isn't needed to produce the bundle
+# (run type-checking in CI/locally instead). Cap Node's heap so it GCs under
+# memory pressure rather than getting killed by the OOM killer.
+RUN NODE_OPTIONS=--max-old-space-size=768 npx vite build
 
 # ---- stage 2: backend ----
 FROM python:3.11-slim
