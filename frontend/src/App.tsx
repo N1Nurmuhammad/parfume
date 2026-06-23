@@ -2,6 +2,7 @@ import { lazy, Suspense, type ComponentType } from "react";
 import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import {
   AppShell,
+  Anchor,
   Burger,
   Group,
   NavLink,
@@ -173,6 +174,18 @@ export function App() {
             />
           ))}
         </ScrollArea>
+        <Text size="sm" c="dimmed" ta="center" mt="auto" py="xs">
+          by{" "}
+          <Anchor
+            href="https://t.me/N1Nurmuhammad"
+            target="_blank"
+            rel="noopener noreferrer"
+            fw={600}
+            c="amore"
+          >
+            Nurmuhammad
+          </Anchor>
+        </Text>
       </AppShell.Navbar>
 
       <AppShell.Main>
