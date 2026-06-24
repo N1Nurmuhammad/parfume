@@ -25,6 +25,7 @@ import {
   IconEye,
   IconCash,
   IconUserPlus,
+  IconPencil,
 } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
@@ -36,6 +37,7 @@ import { formatUzPhone, isValidUzPhone, maskUzPhone } from "../lib/phone";
 import { MoneyInput } from "../components/MoneyInput";
 import { payName } from "../lib/payName";
 import { notifyError, notifySuccess } from "../lib/notify";
+import { confirmKey } from "../lib/confirm";
 import { PageHeader } from "../components/PageHeader";
 import { DateRangeFilter } from "../components/DateRangeFilter";
 import { rangeQuery, type DatePreset } from "../lib/datePresets";
@@ -116,19 +118,51 @@ export function Orders() {
   const prodRate = prodCur ? rateById[prodCur.id] ?? null : baseCurrency ? rateById[baseCurrency.id] : null;
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [editOrder, setEditOrder] = useState<Order | null>(null);
   const [settle, setSettle] = useState<Order | null>(null);
   const [detail, setDetail] = useState<Order | null>(null);
 
-  const openCreate = () => {
+  const canEditOrders = () => {
     if (!products.length || !paymentTypes.length) {
       notifyError(new Error(t("need_entities")));
-      return;
+      return false;
     }
     if (prodRate == null) {
       notifyError(new Error(t("set_product_rate", { c: productCurrency })));
-      return;
+      return false;
     }
-    setCreateOpen(true);
+    return true;
+  };
+
+  const openCreate = () => {
+    if (canEditOrders()) setCreateOpen(true);
+  };
+
+  const openEdit = (o: Order) => {
+    if (canEditOrders()) setEditOrder(o);
+  };
+
+  const handleDelete = async (o: Order) => {
+    if (!confirmKey("del_order")) return;
+    try {
+      await api(`/orders/${o.id}`, { method: "DELETE" });
+      notifySuccess(t("saved"));
+      reload();
+      reloadClients(); // balance / cashback returned to the client
+    } catch (e) {
+      notifyError(e);
+    }
+  };
+
+  // closing / success for the create-or-edit modal
+  const closeForm = () => {
+    setCreateOpen(false);
+    setEditOrder(null);
+  };
+  const onFormSaved = () => {
+    closeForm();
+    reload();
+    reloadClients(); // balance / cashback may have changed
   };
 
   // auto-open the create modal when arrived from the dashboard "New order" button
@@ -250,6 +284,16 @@ export function Orders() {
                       <ActionIcon variant="subtle" onClick={() => setDetail(o)}>
                         <IconEye size={16} />
                       </ActionIcon>
+                      <Tooltip label={t("edit_order")}>
+                        <ActionIcon variant="subtle" color="blue" onClick={() => openEdit(o)}>
+                          <IconPencil size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                      <Tooltip label={t("delete")}>
+                        <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(o)}>
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      </Tooltip>
                     </Group>
                   </Table.Td>
                 </Table.Tr>
@@ -264,10 +308,11 @@ export function Orders() {
         )}
       </Card>
 
-      {createOpen && (
+      {(createOpen || editOrder) && (
         <CreateOrderModal
-          opened={createOpen}
-          onClose={() => setCreateOpen(false)}
+          opened={createOpen || !!editOrder}
+          editOrder={editOrder}
+          onClose={closeForm}
           clients={clients}
           products={products}
           paymentTypes={paymentTypes}
@@ -275,10 +320,7 @@ export function Orders() {
           rateById={rateById}
           prodRate={prodRate!}
           baseCurrency={baseCurrency}
-          onCreated={() => {
-            setCreateOpen(false);
-            reload();
-          }}
+          onCreated={onFormSaved}
           onClientAdded={reloadClients}
         />
       )}
@@ -471,6 +513,7 @@ function PaymentEditor({
 
 function CreateOrderModal({
   opened,
+  editOrder,
   onClose,
   clients,
   products,
@@ -483,6 +526,7 @@ function CreateOrderModal({
   onClientAdded,
 }: {
   opened: boolean;
+  editOrder?: Order | null;
   onClose: () => void;
   clients: Client[];
   products: Product[];
@@ -496,12 +540,37 @@ function CreateOrderModal({
 }) {
   const t = useT();
   const { productCurrency } = useAuth();
-  const [clientId, setClientId] = useState<string | null>(null);
-  const [cashbackPct, setCashbackPct] = useState<string | number>(0);
-  const [status, setStatus] = useState<OrderStatus>("paid");
-  const [dueDate, setDueDate] = useState<Date | null>(null);
-  const [items, setItems] = useState<ItemRow[]>([{ key: nextKey(), productId: null, qty: 1 }]);
-  const [payments, setPayments] = useState<PayRow[]>([]);
+  const [clientId, setClientId] = useState<string | null>(
+    editOrder ? String(editOrder.client_id) : null,
+  );
+  const [cashbackPct, setCashbackPct] = useState<string | number>(
+    editOrder ? Number(editOrder.cashback_percent) : 0,
+  );
+  const [status, setStatus] = useState<OrderStatus>(
+    editOrder ? (editOrder.status as OrderStatus) : "paid",
+  );
+  const [dueDate, setDueDate] = useState<Date | null>(
+    editOrder?.due_date ? new Date(editOrder.due_date) : null,
+  );
+  const [items, setItems] = useState<ItemRow[]>(
+    editOrder
+      ? editOrder.items.map((it) => ({
+          key: nextKey(),
+          productId: String(it.product_id),
+          qty: it.quantity,
+        }))
+      : [{ key: nextKey(), productId: null, qty: 1 }],
+  );
+  const [payments, setPayments] = useState<PayRow[]>(
+    editOrder
+      ? editOrder.payments.map((p) => ({
+          key: nextKey(),
+          ptId: String(p.payment_type_id),
+          currencyId: String(p.currency_id),
+          amount: String(p.amount),
+        }))
+      : [],
+  );
   const [busy, setBusy] = useState(false);
   const [quickAdd, setQuickAdd] = useState(false);
 
@@ -583,7 +652,11 @@ function CreateOrderModal({
 
     setBusy(true);
     try {
-      await api("/orders", { method: "POST", body: payload });
+      if (editOrder) {
+        await api(`/orders/${editOrder.id}`, { method: "PUT", body: payload });
+      } else {
+        await api("/orders", { method: "POST", body: payload });
+      }
       notifySuccess(t("saved"));
       onCreated();
     } catch (e) {
@@ -594,7 +667,7 @@ function CreateOrderModal({
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title={t("new_order")} size="xl" centered>
+    <Modal opened={opened} onClose={onClose} title={editOrder ? t("edit_order") : t("new_order")} size="xl" centered>
       <Stack gap="md">
         <Group align="flex-end" gap="xs">
           <Select
@@ -733,7 +806,7 @@ function CreateOrderModal({
             {t("cancel")}
           </Button>
           <Button onClick={submit} loading={busy}>
-            {t("create_order")}
+            {editOrder ? t("save_changes") : t("create_order")}
           </Button>
         </Group>
       </Stack>

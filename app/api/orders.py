@@ -134,3 +134,41 @@ async def get_order(
     if order is None:
         raise HTTPException(status_code=404, detail="order not found")
     return _serialize(order)
+
+
+@router.put("/{order_id}", response_model=OrderOut)
+async def update_order(
+    order_id: int,
+    body: OrderCreate,
+    repo: BaseRepo = Depends(get_repo),
+    admin: Admin = Depends(get_current_admin),
+) -> OrderOut:
+    """Edit an order, reversing its old effects and applying the new ones."""
+    try:
+        order = await repo.orders.replace(
+            order_id,
+            client_id=body.client_id,
+            cashback_percent=body.cashback_percent,
+            items=[i.model_dump() for i in body.items],
+            payments=[p.model_dump() for p in body.payments],
+            admin_id=admin.id,
+            status=body.status,
+            due_date=body.due_date,
+        )
+    except OrderError as exc:
+        await repo.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+    await repo.commit()
+    return _serialize(await repo.orders.get(order.id))
+
+
+@router.delete("/{order_id}", status_code=204)
+async def delete_order(
+    order_id: int,
+    repo: BaseRepo = Depends(get_repo),
+    admin: Admin = Depends(get_current_admin),
+) -> None:
+    """Delete an order, restoring stock and returning any debt/cashback."""
+    if not await repo.orders.delete(order_id):
+        raise HTTPException(status_code=404, detail="order not found")
+    await repo.commit()

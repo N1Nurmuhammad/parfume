@@ -665,6 +665,67 @@ class OrderRepo(_SessionRepo):
                 order_id=order.id,
             )
 
+    async def _build_items(
+        self, items: list[dict]
+    ) -> tuple[Decimal, list[OrderItem]]:
+        """Snapshot prices and decrement stock for each line; return the
+        (subtotal, OrderItem rows). Raises OrderError on bad refs / short stock.
+        Shared by create and replace.
+        """
+        # Product prices are in PRODUCT_CURRENCY (e.g. USD); convert each line to
+        # base so'm at today's rate and snapshot it, so the books stay in so'm.
+        prod_rate = await self._product_rate(dt.date.today())
+        subtotal = Decimal(0)
+        order_items: list[OrderItem] = []
+        for line in items:
+            product = await self.session.get(Product, line["product_id"])
+            if product is None:
+                raise OrderError(f"product {line['product_id']} not found")
+            qty = int(line["quantity"])
+            if qty <= 0:
+                raise OrderError("quantity must be positive")
+            if product.quantity < qty:
+                raise OrderError(
+                    f"not enough stock for {product.name!r} "
+                    f"({product.quantity} left, {qty} requested)"
+                )
+            product.quantity -= qty
+            # full selling price (price + cargo) and cost, converted to so'm
+            full = ((Decimal(product.price) + Decimal(product.cargo)) * prod_rate).quantize(Decimal("0.01"))
+            cost = (Decimal(product.cargo_price) * prod_rate).quantize(Decimal("0.01"))
+            order_items.append(OrderItem(
+                product_id=product.id, quantity=qty, price=full, cargo_price=cost,
+            ))
+            subtotal += full * qty
+        return subtotal, order_items
+
+    async def _reverse(self, order: Order) -> None:
+        """Undo an order's side effects: restore stock and roll back the client's
+        balance and cashback to before the sale, deleting the order's ledger rows.
+        Shared by delete and replace (which then re-applies fresh effects).
+        """
+        for item in order.items:
+            product = await self.session.get(Product, item.product_id)
+            if product is not None:
+                product.quantity += item.quantity
+        bal_rows = (await self.session.execute(
+            select(BalanceLog).where(BalanceLog.order_id == order.id)
+        )).scalars().all()
+        cb_rows = (await self.session.execute(
+            select(CashbackLog).where(CashbackLog.order_id == order.id)
+        )).scalars().all()
+        client = await self._clients.get(order.client_id)
+        if client is not None:
+            net_bal = sum((Decimal(r.change) for r in bal_rows), Decimal(0))
+            net_cb = sum((Decimal(r.change) for r in cb_rows), Decimal(0))
+            # debt charged the balance and cashback was earned/redeemed against
+            # this order — subtract both deltas to restore the pre-sale state.
+            client.balance = Decimal(client.balance) - net_bal
+            client.cashback = Decimal(client.cashback) - net_cb
+        for r in (*bal_rows, *cb_rows):
+            await self.session.delete(r)
+        await self.session.flush()
+
     async def create(
         self,
         client_id: int,
@@ -694,35 +755,10 @@ class OrderRepo(_SessionRepo):
         if cashback_percent < 0 or cashback_percent > 100:
             raise OrderError("cashback percent must be between 0 and 100")
 
-        # Product prices are in PRODUCT_CURRENCY (e.g. USD); convert each line to
-        # base so'm at today's rate and snapshot it, so the books stay in so'm.
-        prod_rate = await self._product_rate(dt.date.today())
-
         # Build line items first (snapshot price/cost, decrement stock) and hand
         # them to the constructor on a still-transient Order (avoids async
         # lazy-load of the collection).
-        subtotal = Decimal(0)
-        order_items: list[OrderItem] = []
-        for line in items:
-            product = await self.session.get(Product, line["product_id"])
-            if product is None:
-                raise OrderError(f"product {line['product_id']} not found")
-            qty = int(line["quantity"])
-            if qty <= 0:
-                raise OrderError("quantity must be positive")
-            if product.quantity < qty:
-                raise OrderError(
-                    f"not enough stock for {product.name!r} "
-                    f"({product.quantity} left, {qty} requested)"
-                )
-            product.quantity -= qty
-            # full selling price (price + cargo) and cost, converted to so'm
-            full = ((Decimal(product.price) + Decimal(product.cargo)) * prod_rate).quantize(Decimal("0.01"))
-            cost = (Decimal(product.cargo_price) * prod_rate).quantize(Decimal("0.01"))
-            order_items.append(OrderItem(
-                product_id=product.id, quantity=qty, price=full, cargo_price=cost,
-            ))
-            subtotal += full * qty
+        subtotal, order_items = await self._build_items(items)
 
         total = subtotal.quantize(Decimal("0.01"))  # cashback does NOT reduce total
         now = dt.datetime.now(dt.timezone.utc)
@@ -759,6 +795,73 @@ class OrderRepo(_SessionRepo):
         order.status = "paid"
         order.paid_at = dt.datetime.now(dt.timezone.utc)
         await self.session.flush()
+        return order
+
+    async def delete(self, order_id: int) -> bool:
+        """Delete an order, reversing all its effects: restore stock and return
+        any debt/cashback to the client. Returns False if the order is gone."""
+        order = await self.get(order_id)
+        if order is None:
+            return False
+        await self._reverse(order)
+        await self.session.delete(order)  # cascades items + payments
+        await self.session.flush()
+        return True
+
+    async def replace(
+        self,
+        order_id: int,
+        client_id: int,
+        cashback_percent: Decimal,
+        items: list[dict],
+        payments: list[dict],
+        admin_id: int,
+        status: str = "paid",
+        due_date: Optional[dt.date] = None,
+    ) -> Order:
+        """Edit an order in place: reverse its old effects (stock/balance/cashback)
+        and apply the new ones, keeping the same id, creator and created_at. The
+        `payments`/`status` rules match create. Raises OrderError on bad input.
+        """
+        order = await self.get(order_id)
+        if order is None:
+            raise OrderError("order not found")
+        client = await self._clients.get(client_id)
+        if client is None:
+            raise OrderError(f"client {client_id} not found")
+        if not items:
+            raise OrderError("order has no items")
+        if status not in ("paid", "delivery"):
+            raise OrderError("invalid order status")
+        cashback_percent = Decimal(cashback_percent or 0)
+        if cashback_percent < 0 or cashback_percent > 100:
+            raise OrderError("cashback percent must be between 0 and 100")
+
+        # Roll back the old sale, then drop its lines (delete-orphan cascade).
+        await self._reverse(order)
+        order.items.clear()
+        order.payments.clear()
+        await self.session.flush()
+
+        subtotal, order_items = await self._build_items(items)
+        order.client_id = client_id
+        order.cashback_percent = cashback_percent
+        order.subtotal = subtotal
+        order.total = subtotal.quantize(Decimal("0.01"))
+        order.status = status
+        order.due_date = due_date
+        order.items = order_items
+        if status == "paid":
+            if not payments:
+                raise OrderError("order has no payments")
+            # keep the original paid date if it was already paid
+            order.paid_at = order.paid_at or dt.datetime.now(dt.timezone.utc)
+        else:
+            order.paid_at = None
+        await self.session.flush()
+
+        if status == "paid":
+            await self._apply_payments(order, payments, admin_id)
         return order
 
     async def get(self, order_id: int) -> Optional[Order]:

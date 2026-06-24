@@ -181,7 +181,7 @@ export function App() {
             target="_blank"
             rel="noopener noreferrer"
             fw={600}
-            c="amore"
+            c="gray"
           >
             Nurmuhammad
           </Anchor>
