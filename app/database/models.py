@@ -86,7 +86,9 @@ class Product(Base):
 
 class PaymentType(Base):
     """A dynamic payment method. `is_debt` types charge the client's balance;
-    `is_cashback` types redeem from the client's cashback balance."""
+    `is_cashback` types redeem from the client's cashback balance; `is_change`
+    types represent money handed back to the client (change/qaytim) and are
+    stored as a negative amount, so they subtract from the order's paid total."""
 
     __tablename__ = "payment_types"
 
@@ -96,6 +98,9 @@ class PaymentType(Base):
         Boolean, default=False, server_default="false"
     )
     is_cashback: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    is_change: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )
 

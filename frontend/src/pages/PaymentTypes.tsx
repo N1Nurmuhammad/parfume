@@ -27,9 +27,15 @@ interface FormState {
   name: string;
   is_debt: boolean;
   is_cashback: boolean;
+  is_change: boolean;
 }
 
-const EMPTY_FORM: FormState = { name: "", is_debt: false, is_cashback: false };
+const EMPTY_FORM: FormState = {
+  name: "",
+  is_debt: false,
+  is_cashback: false,
+  is_change: false,
+};
 
 export function PaymentTypes() {
   const t = useT();
@@ -48,7 +54,12 @@ export function PaymentTypes() {
 
   function openEdit(pt: PaymentType) {
     setEditing(pt);
-    setForm({ name: pt.name, is_debt: pt.is_debt, is_cashback: pt.is_cashback });
+    setForm({
+      name: pt.name,
+      is_debt: pt.is_debt,
+      is_cashback: pt.is_cashback,
+      is_change: pt.is_change,
+    });
     setOpened(true);
   }
 
@@ -63,6 +74,7 @@ export function PaymentTypes() {
         name: form.name,
         is_debt: form.is_debt,
         is_cashback: form.is_cashback,
+        is_change: form.is_change,
       };
       if (editing) {
         await api(`/payment-types/${editing.id}`, { method: "PUT", body });
@@ -106,6 +118,7 @@ export function PaymentTypes() {
                 <Table.Th>{t("payment_type")}</Table.Th>
                 <Table.Th>{t("debt")}</Table.Th>
                 <Table.Th>{t("cashback")}</Table.Th>
+                <Table.Th>{t("change_label")}</Table.Th>
                 <Table.Th>{t("actions")}</Table.Th>
               </Table.Tr>
             </Table.Thead>
@@ -123,6 +136,13 @@ export function PaymentTypes() {
                   <Table.Td>
                     {pt.is_cashback ? (
                       <Badge color="grape">{t("cashback")}</Badge>
+                    ) : (
+                      <Text c="dimmed">—</Text>
+                    )}
+                  </Table.Td>
+                  <Table.Td>
+                    {pt.is_change ? (
+                      <Badge color="teal">{t("change_label")}</Badge>
                     ) : (
                       <Text c="dimmed">—</Text>
                     )}
@@ -174,13 +194,37 @@ export function PaymentTypes() {
           <Switch
             label={t("debt_type_q")}
             checked={form.is_debt}
-            onChange={(e) => setForm((f) => ({ ...f, is_debt: e.currentTarget.checked }))}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                is_debt: e.currentTarget.checked,
+                // a debt type can't also be a change type
+                is_change: e.currentTarget.checked ? false : f.is_change,
+              }))
+            }
           />
           <Switch
             label={t("is_cashback_q")}
             checked={form.is_cashback}
             onChange={(e) =>
-              setForm((f) => ({ ...f, is_cashback: e.currentTarget.checked }))
+              setForm((f) => ({
+                ...f,
+                is_cashback: e.currentTarget.checked,
+                is_change: e.currentTarget.checked ? false : f.is_change,
+              }))
+            }
+          />
+          <Switch
+            label={t("change_type_q")}
+            checked={form.is_change}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                is_change: e.currentTarget.checked,
+                // a change type returns money — it can't be debt or cashback
+                is_debt: e.currentTarget.checked ? false : f.is_debt,
+                is_cashback: e.currentTarget.checked ? false : f.is_cashback,
+              }))
             }
           />
           <Group justify="flex-end" gap="sm">

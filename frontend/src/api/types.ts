@@ -64,6 +64,7 @@ export interface PaymentType {
   name: string;
   is_debt: boolean;
   is_cashback: boolean;
+  is_change: boolean;
 }
 
 export interface Currency {
@@ -98,6 +99,7 @@ export interface OrderPayment {
   payment_type_name: string;
   is_debt: boolean;
   is_cashback: boolean;
+  is_change: boolean;
   amount: Money;
   currency_id: number;
   currency_code: string;

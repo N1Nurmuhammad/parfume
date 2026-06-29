@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActionIcon,
   Button,
@@ -11,7 +11,7 @@ import {
   Text,
   TextInput,
 } from '@mantine/core';
-import { IconPencil, IconTrash } from '@tabler/icons-react';
+import { IconPencil, IconSearch, IconTrash } from '@tabler/icons-react';
 import { api } from '../api/client';
 import type { Product } from '../api/types';
 import { useList } from '../lib/useList';
@@ -45,11 +45,18 @@ export function Products() {
   const pc = productCurrency;
   const { data, loading, reload } = useList<Product>('/products');
 
+  const [search, setSearch] = useState('');
   const [opened, setOpened] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
 
   const editing = editingId !== null;
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return data;
+    return data.filter((p) => p.name.toLowerCase().includes(q));
+  }, [data, search]);
 
   function openAdd() {
     setEditingId(null);
@@ -105,6 +112,12 @@ export function Products() {
   return (
     <>
       <PageHeader title={t('nav_products')}>
+        <TextInput
+          placeholder={t('search')}
+          leftSection={<IconSearch size={16} />}
+          value={search}
+          onChange={(e) => setSearch(e.currentTarget.value)}
+        />
         <Button onClick={openAdd}>{t('add_product')}</Button>
       </PageHeader>
 
@@ -123,7 +136,7 @@ export function Products() {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {data.map((p) => (
+              {filtered.map((p) => (
                 <Table.Tr key={p.id}>
                   <Table.Td>{p.name}</Table.Td>
                   <Table.Td ta="right">{p.quantity}</Table.Td>
@@ -158,7 +171,7 @@ export function Products() {
           </Table>
         </Table.ScrollContainer>
 
-        {!loading && data.length === 0 && (
+        {!loading && filtered.length === 0 && (
           <Text c="dimmed" ta="center" py="xl">
             {t('no_products')}
           </Text>

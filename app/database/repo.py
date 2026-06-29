@@ -316,15 +316,19 @@ class PaymentTypeRepo(_SessionRepo):
         return await self.session.get(PaymentType, payment_type_id)
 
     async def add(
-        self, name: str, is_debt: bool, is_cashback: bool = False
+        self, name: str, is_debt: bool, is_cashback: bool = False,
+        is_change: bool = False,
     ) -> PaymentType:
-        pt = PaymentType(name=name, is_debt=is_debt, is_cashback=is_cashback)
+        pt = PaymentType(
+            name=name, is_debt=is_debt, is_cashback=is_cashback, is_change=is_change
+        )
         self.session.add(pt)
         await self.session.flush()
         return pt
 
     async def update(
-        self, payment_type_id: int, name: str, is_debt: bool, is_cashback: bool = False
+        self, payment_type_id: int, name: str, is_debt: bool,
+        is_cashback: bool = False, is_change: bool = False,
     ) -> Optional[PaymentType]:
         pt = await self.get(payment_type_id)
         if pt is None:
@@ -332,6 +336,7 @@ class PaymentTypeRepo(_SessionRepo):
         pt.name = name
         pt.is_debt = is_debt
         pt.is_cashback = is_cashback
+        pt.is_change = is_change
         await self.session.flush()
         return pt
 
@@ -617,6 +622,11 @@ class OrderRepo(_SessionRepo):
             if rate is None:
                 raise OrderError(f"no exchange rate set for {currency.code}")
             amount_base = (amount * Decimal(rate)).quantize(Decimal("0.01"))
+            if pt.is_change:
+                # money handed back to the client — stored negative so it
+                # subtracts from the paid total (e.g. 100 cash − 30 change = 70)
+                amount = -amount
+                amount_base = -amount_base
             payment_rows.append(OrderPayment(
                 order_id=order.id, payment_type_id=pt.id, currency_id=currency.id,
                 amount=amount, rate=Decimal(rate), amount_base=amount_base,

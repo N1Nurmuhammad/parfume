@@ -129,8 +129,9 @@ export function Dashboard() {
     const [from, to] = range;
     return {
       date_from: from ? dayjs(from).format("YYYY-MM-DD") : undefined,
-      // half-open window: backend treats date_to as exclusive day boundary
-      date_to: to ? dayjs(to).add(1, "day").format("YYYY-MM-DD") : undefined,
+      // backend treats date_to as the exclusive next-day boundary, so send the
+      // selected day as-is to include it fully (do NOT add a day here).
+      date_to: to ? dayjs(to).format("YYYY-MM-DD") : undefined,
     };
   }, [range]);
 

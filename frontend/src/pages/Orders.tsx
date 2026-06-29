@@ -378,14 +378,39 @@ function PaymentEditor({
         currencyId: base ? String(base.id) : null,
         amount: cashbackDefault > 0 ? String(cashbackDefault) : "",
       });
+    } else if (pt?.is_change) {
+      // change is handed back in the currency the client overpaid in: default to
+      // the currency of the largest non-change payment line (fall back to base)
+      update(key, { ptId, currencyId: overpaidCurrencyId(key) });
     } else {
       update(key, { ptId });
     }
   };
 
+  // currency of the non-change payment line contributing the most (in base units),
+  // i.e. what the client mainly paid with — used to default a change line's currency
+  const overpaidCurrencyId = (exceptKey: number): string | null => {
+    let bestId: string | null = null;
+    let bestBase = 0;
+    for (const r of rows) {
+      if (r.key === exceptKey || !r.currencyId || isChangeRow(r)) continue;
+      const inBase = (Number(r.amount) || 0) * (rateById[Number(r.currencyId)] ?? 0);
+      if (inBase > bestBase) {
+        bestBase = inBase;
+        bestId = r.currencyId;
+      }
+    }
+    return bestId ?? (base ? String(base.id) : null);
+  };
+
+  // a change/qaytim line is money handed back — it subtracts from the paid total
+  const isChangeRow = (r: PayRow) =>
+    !!paymentTypes.find((p) => String(p.id) === r.ptId)?.is_change;
+
   const allocated = rows.reduce((a, r) => {
     const rate = r.currencyId ? rateById[Number(r.currencyId)] ?? 0 : 0;
-    return a + (Number(r.amount) || 0) * rate;
+    const sign = isChangeRow(r) ? -1 : 1;
+    return a + sign * (Number(r.amount) || 0) * rate;
   }, 0);
   const remaining = totalSom - allocated;
 
@@ -505,6 +530,19 @@ function PaymentEditor({
           {money(remaining)}
         </Text>
       </Group>
+
+      {remaining < -0.5 && (
+        // client paid more than the total: tell the cashier how much to hand back
+        // (add a change/qaytim payment line for this amount to balance the order)
+        <Group justify="space-between">
+          <Text size="sm" c="dimmed">
+            {t("change_to_return")}
+          </Text>
+          <Text size="sm" fw={600} c="teal" className="money-num">
+            {money(-remaining)}
+          </Text>
+        </Group>
+      )}
     </Stack>
   );
 }
@@ -617,7 +655,8 @@ function CreateOrderModal({
     if (status === "paid") {
       const allocated = payments.reduce((a, r) => {
         const rate = r.currencyId ? rateById[Number(r.currencyId)] ?? 0 : 0;
-        return a + (Number(r.amount) || 0) * rate;
+        const isChange = paymentTypes.find((p) => String(p.id) === r.ptId)?.is_change;
+        return a + (isChange ? -1 : 1) * (Number(r.amount) || 0) * rate;
       }, 0);
       if (Math.abs(allocated - totalSom) > 0.5 * payments.length + 0.5) {
         return notifyError(new Error(t("pay_sum_msg", { a: money(allocated), b: money(totalSom) })));

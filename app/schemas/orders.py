@@ -57,6 +57,7 @@ class OrderPaymentOut(BaseModel):
     payment_type_name: str
     is_debt: bool
     is_cashback: bool
+    is_change: bool
     amount: Decimal
     currency_id: int
     currency_code: str

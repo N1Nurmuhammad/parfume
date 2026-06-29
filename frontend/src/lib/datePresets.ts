@@ -50,12 +50,13 @@ export function rangeForPreset(p: DatePreset): [Date | null, Date | null] {
   }
 }
 
-/** Build the {date_from, date_to} query for a [from, to] range. The window is
- * half-open server-side, so the "to" day is included by adding one day. */
+/** Build the {date_from, date_to} query for a [from, to] range. The "to" day is
+ * sent as-is; the backend makes the window half-open by treating date_to as the
+ * exclusive next-day boundary, so the "to" day is fully included. */
 export function rangeQuery(range: [Date | null, Date | null]) {
   const [from, to] = range;
   return {
     date_from: from ? dayjs(from).format("YYYY-MM-DD") : undefined,
-    date_to: to ? dayjs(to).add(1, "day").format("YYYY-MM-DD") : undefined,
+    date_to: to ? dayjs(to).format("YYYY-MM-DD") : undefined,
   };
 }

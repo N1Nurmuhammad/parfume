@@ -18,11 +18,23 @@ async def list_payment_types(
     ]
 
 
+def _validate_flags(body: PaymentTypeIn) -> None:
+    # a change/qaytim type returns money — it can't also be debt or cashback
+    if body.is_change and (body.is_debt or body.is_cashback):
+        raise HTTPException(
+            status_code=422,
+            detail="a change type cannot also be a debt or cashback type",
+        )
+
+
 @router.post("", response_model=PaymentTypeOut, status_code=201)
 async def create_payment_type(
     body: PaymentTypeIn, repo: BaseRepo = Depends(get_repo)
 ) -> PaymentTypeOut:
-    pt = await repo.payment_types.add(body.name, body.is_debt, body.is_cashback)
+    _validate_flags(body)
+    pt = await repo.payment_types.add(
+        body.name, body.is_debt, body.is_cashback, body.is_change
+    )
     await repo.commit()
     return PaymentTypeOut.model_validate(pt)
 
@@ -33,8 +45,9 @@ async def update_payment_type(
     body: PaymentTypeIn,
     repo: BaseRepo = Depends(get_repo),
 ) -> PaymentTypeOut:
+    _validate_flags(body)
     pt = await repo.payment_types.update(
-        payment_type_id, body.name, body.is_debt, body.is_cashback
+        payment_type_id, body.name, body.is_debt, body.is_cashback, body.is_change
     )
     if pt is None:
         raise HTTPException(status_code=404, detail="payment type not found")
