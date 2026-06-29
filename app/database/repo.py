@@ -892,10 +892,14 @@ class OrderRepo(_SessionRepo):
         limit: int = 200,
     ) -> list[Order]:
         stmt = select(Order).order_by(Order.id.desc()).limit(limit)
+        # Filter on the same date the list shows (paid_at when settled, else
+        # created_at) so an order created one day but paid the next lands in the
+        # window matching its displayed time.
+        list_date = func.coalesce(Order.paid_at, Order.created_at)
         if date_from is not None:
-            stmt = stmt.where(Order.created_at >= date_from)
+            stmt = stmt.where(list_date >= date_from)
         if date_to is not None:
-            stmt = stmt.where(Order.created_at < date_to)
+            stmt = stmt.where(list_date < date_to)
         if status is not None:
             stmt = stmt.where(Order.status == status)
         rows = await self.session.execute(stmt)
