@@ -130,6 +130,7 @@ export interface PaymentLineIn {
   payment_type_id: number;
   currency_id: number;
   amount: string;
+  is_change?: boolean;
 }
 
 export interface OrderCreate {
@@ -151,6 +152,8 @@ export interface Expense {
   amount: Money;
   currency_id: number;
   currency_code: string;
+  payment_type_id: number | null;
+  payment_type_name: string | null;
   category_id: number | null;
   category_name: string | null;
   rate: Money;

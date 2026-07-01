@@ -60,7 +60,9 @@ def _serialize(order: Order) -> OrderOut:
                 payment_type_name=p.payment_type.name,
                 is_debt=p.payment_type.is_debt,
                 is_cashback=p.payment_type.is_cashback,
-                is_change=p.payment_type.is_change,
+                # change lines are stored as a negative amount under a real
+                # method; the sign is the source of truth for "money handed back"
+                is_change=p.amount < 0,
                 amount=p.amount,
                 currency_id=p.currency_id,
                 currency_code=p.currency.code,

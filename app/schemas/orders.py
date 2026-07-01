@@ -16,6 +16,9 @@ class OrderPaymentIn(BaseModel):
     payment_type_id: int
     currency_id: int
     amount: Decimal = Field(gt=0)
+    # money handed back to the client (change/qaytim): stored as a negative line
+    # under the chosen real method (Cash / Card), so it nets out of that till
+    is_change: bool = False
 
 
 class OrderCreate(BaseModel):

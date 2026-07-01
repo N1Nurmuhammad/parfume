@@ -23,6 +23,8 @@ def _serialize(e) -> ExpenseOut:
     return ExpenseOut(
         id=e.id, amount=e.amount, currency_id=e.currency_id,
         currency_code=e.currency.code, rate=e.rate, amount_base=e.amount_base,
+        payment_type_id=e.payment_type_id,
+        payment_type_name=e.payment_type.name if e.payment_type else None,
         category_id=e.category_id,
         category_name=e.category.name if e.category else None,
         note=e.note, created_by=e.admin.login, created_at=e.created_at,
@@ -45,7 +47,8 @@ async def create_expense(
 ) -> ExpenseOut:
     try:
         exp = await repo.expenses.add(
-            body.amount, body.currency_id, body.note, admin.id, body.category_id
+            body.amount, body.currency_id, body.payment_type_id,
+            body.note, admin.id, body.category_id,
         )
     except ExpenseError as exc:
         await repo.rollback()

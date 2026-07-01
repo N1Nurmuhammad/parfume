@@ -19,6 +19,7 @@ class ExpenseCategoryOut(BaseModel):
 class ExpenseIn(BaseModel):
     amount: Decimal = Field(gt=0)
     currency_id: int
+    payment_type_id: int
     category_id: Optional[int] = None
     note: Optional[str] = None
 
@@ -28,6 +29,8 @@ class ExpenseOut(BaseModel):
     amount: Decimal
     currency_id: int
     currency_code: str
+    payment_type_id: Optional[int] = None
+    payment_type_name: Optional[str] = None
     category_id: Optional[int] = None
     category_name: Optional[str] = None
     rate: Decimal

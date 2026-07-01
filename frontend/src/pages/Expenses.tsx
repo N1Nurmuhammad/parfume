@@ -15,9 +15,10 @@ import {
 } from "@mantine/core";
 import { IconPlus, IconTrash, IconTag } from "@tabler/icons-react";
 import { api } from "../api/client";
-import type { Expense, Currency, ExpenseCategory } from "../api/types";
+import type { Expense, Currency, ExpenseCategory, PaymentType } from "../api/types";
 import { useList } from "../lib/useList";
 import { useT } from "../i18n";
+import { payName } from "../lib/payName";
 import { money, moneyCur, fmtDateTime } from "../lib/money";
 import { MoneyInput } from "../components/MoneyInput";
 import { notifyError, notifySuccess } from "../lib/notify";
@@ -36,12 +37,14 @@ export function Expenses() {
     expensesQuery,
   );
   const { data: currencies } = useList<Currency>("/currencies");
+  const { data: paymentTypes } = useList<PaymentType>("/payment-types");
   const { data: categories, reload: reloadCats } =
     useList<ExpenseCategory>("/expense-categories");
 
   const [opened, setOpened] = useState(false);
   const [amount, setAmount] = useState("");
   const [currencyId, setCurrencyId] = useState<string | null>(null);
+  const [paymentTypeId, setPaymentTypeId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -53,6 +56,11 @@ export function Expenses() {
     value: String(c.id),
     label: `${c.code} — ${c.name}`,
   }));
+  // only real cash-outs make sense for an expense (exclude debt / cashback /
+  // change types, mirroring the backend validation)
+  const paymentTypeOptions = paymentTypes
+    .filter((p) => !p.is_debt && !p.is_cashback && !p.is_change)
+    .map((p) => ({ value: String(p.id), label: payName(p.name) }));
   const categoryOptions = categories.map((c) => ({
     value: String(c.id),
     label: c.name,
@@ -69,6 +77,7 @@ export function Expenses() {
   function openModal() {
     setAmount("");
     setCurrencyId(currencies.length ? String(currencies[0].id) : null);
+    setPaymentTypeId(paymentTypeOptions.length ? paymentTypeOptions[0].value : null);
     setCategoryId(null);
     setNote("");
     setOpened(true);
@@ -82,6 +91,7 @@ export function Expenses() {
         body: {
           amount: amount || "0",
           currency_id: Number(currencyId),
+          payment_type_id: Number(paymentTypeId),
           category_id: categoryId ? Number(categoryId) : null,
           note: note || null,
         },
@@ -146,6 +156,7 @@ export function Expenses() {
               <Table.Tr>
                 <Table.Th>{t("when")}</Table.Th>
                 <Table.Th>{t("category")}</Table.Th>
+                <Table.Th>{t("payment_type")}</Table.Th>
                 <Table.Th ta="right">{t("amount")}</Table.Th>
                 <Table.Th>{t("note")}</Table.Th>
                 <Table.Th>{t("created_by")}</Table.Th>
@@ -164,6 +175,15 @@ export function Expenses() {
                     ) : (
                       <Text c="dimmed" size="sm">
                         {t("no_category")}
+                      </Text>
+                    )}
+                  </Table.Td>
+                  <Table.Td>
+                    {e.payment_type_name ? (
+                      payName(e.payment_type_name)
+                    ) : (
+                      <Text c="dimmed" size="sm">
+                        —
                       </Text>
                     )}
                   </Table.Td>
@@ -212,6 +232,13 @@ export function Expenses() {
             onChange={setCurrencyId}
           />
           <Select
+            label={t("payment_type")}
+            required
+            data={paymentTypeOptions}
+            value={paymentTypeId}
+            onChange={setPaymentTypeId}
+          />
+          <Select
             label={t("category")}
             placeholder={t("no_category")}
             data={categoryOptions}
@@ -230,7 +257,7 @@ export function Expenses() {
             <Button variant="default" onClick={() => setOpened(false)}>
               {t("cancel")}
             </Button>
-            <Button onClick={save} loading={saving}>
+            <Button onClick={save} loading={saving} disabled={!paymentTypeId}>
               {t("save")}
             </Button>
           </Group>

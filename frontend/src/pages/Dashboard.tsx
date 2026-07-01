@@ -188,13 +188,16 @@ export function Dashboard() {
     return s ? `${s}${compact}` : `${compact} ${productCurrency}`;
   };
 
-  // one segment per payment type, totalled in base so'm (currencies have their
-  // own separate breakdown card)
-  const donutData = breakdown.map((b, i) => ({
-    name: payName(b.name),
-    value: Number(b.total),
-    color: DONUT_COLORS[i % DONUT_COLORS.length],
-  }));
+  // one segment per payment type, totalled in base so'm net of expenses
+  // (currencies have their own separate breakdown card). Non-positive nets
+  // (expenses ≥ income for a method) are dropped — the donut can't render them.
+  const donutData = breakdown
+    .map((b, i) => ({
+      name: payName(b.name),
+      value: Number(b.total),
+      color: DONUT_COLORS[i % DONUT_COLORS.length],
+    }))
+    .filter((d) => d.value > 0);
 
   // group the per-(currency, method) rows by currency, split into Cash / Card /
   // Other for the cashier's end-of-day reconciliation in the "By currency" card

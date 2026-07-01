@@ -265,6 +265,12 @@ class Expense(Base):
     category_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("expense_categories.id"), nullable=True, index=True
     )
+    # Which payment method the money went out of (Cash / Card / …); nullable so
+    # legacy rows stay unattributed. Analytics nets this out of the matching
+    # payment-type + currency bucket so till balances reflect money in − out.
+    payment_type_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("payment_types.id"), nullable=True, index=True
+    )
     amount: Mapped[float] = mapped_column(Numeric(14, 2))
     rate: Mapped[float] = mapped_column(Numeric(18, 4))
     amount_base: Mapped[float] = mapped_column(Numeric(14, 2))
@@ -274,6 +280,7 @@ class Expense(Base):
     currency: Mapped["Currency"] = relationship(lazy="joined")
     admin: Mapped["Admin"] = relationship(lazy="joined")
     category: Mapped[Optional["ExpenseCategory"]] = relationship(lazy="joined")
+    payment_type: Mapped[Optional["PaymentType"]] = relationship(lazy="joined")
 
 
 class SmsBroadcast(Base):

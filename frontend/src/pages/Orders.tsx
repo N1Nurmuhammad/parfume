@@ -26,6 +26,7 @@ import {
   IconCash,
   IconUserPlus,
   IconPencil,
+  IconArrowBackUp,
 } from "@tabler/icons-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
@@ -66,6 +67,10 @@ interface PayRow {
   ptId: string | null;
   currencyId: string | null;
   amount: string;
+  // money handed back to the client (change/qaytim): the row's method is a real
+  // Cash/Card type and the amount is sent as a negative line that nets out of
+  // that method's till
+  isChange: boolean;
 }
 
 // sum an order's payments grouped by currency (native units)
@@ -369,6 +374,10 @@ function PaymentEditor({
   const t = useT();
   const base = currencies.find((c) => c.is_base) ?? currencies[0];
 
+  // real cash-out methods only (Cash / Card / …); change is a per-row toggle now
+  // and the legacy change/qaytim type is hidden from the dropdown
+  const methodTypes = paymentTypes.filter((p) => !p.is_change);
+
   // selecting a payment type: a cashback type prefills the full cashback in base
   const pickType = (key: number, ptId: string | null) => {
     const pt = paymentTypes.find((p) => String(p.id) === ptId);
@@ -378,14 +387,15 @@ function PaymentEditor({
         currencyId: base ? String(base.id) : null,
         amount: cashbackDefault > 0 ? String(cashbackDefault) : "",
       });
-    } else if (pt?.is_change) {
-      // change is handed back in the currency the client overpaid in: default to
-      // the currency of the largest non-change payment line (fall back to base)
-      update(key, { ptId, currencyId: overpaidCurrencyId(key) });
     } else {
       update(key, { ptId });
     }
   };
+
+  // toggle a row between a normal payment and money handed back (change): when
+  // turning change on, default its currency to the one the client overpaid in
+  const toggleChange = (key: number, on: boolean) =>
+    update(key, on ? { isChange: true, currencyId: overpaidCurrencyId(key) } : { isChange: false });
 
   // currency of the non-change payment line contributing the most (in base units),
   // i.e. what the client mainly paid with — used to default a change line's currency
@@ -404,8 +414,7 @@ function PaymentEditor({
   };
 
   // a change/qaytim line is money handed back — it subtracts from the paid total
-  const isChangeRow = (r: PayRow) =>
-    !!paymentTypes.find((p) => String(p.id) === r.ptId)?.is_change;
+  const isChangeRow = (r: PayRow) => r.isChange;
 
   const allocated = rows.reduce((a, r) => {
     const rate = r.currencyId ? rateById[Number(r.currencyId)] ?? 0 : 0;
@@ -420,7 +429,9 @@ function PaymentEditor({
     const byCur = new Map<string, { code: string; methods: Map<string, number> }>();
     for (const r of rows) {
       const amt = Number(r.amount);
-      if (!r.ptId || !r.currencyId || !(amt > 0)) continue;
+      // change rows are money handed back, not collected — exclude from the
+      // "collected" preview (the amount to return is shown separately below)
+      if (!r.ptId || !r.currencyId || !(amt > 0) || isChangeRow(r)) continue;
       const cur = currencies.find((c) => String(c.id) === r.currencyId);
       const pt = paymentTypes.find((p) => String(p.id) === r.ptId);
       if (!cur || !pt) continue;
@@ -459,9 +470,10 @@ function PaymentEditor({
               ...rows,
               {
                 key: nextKey(),
-                ptId: paymentTypes[0] ? String(paymentTypes[0].id) : null,
+                ptId: methodTypes[0] ? String(methodTypes[0].id) : null,
                 currencyId: base ? String(base.id) : null,
                 amount: "",
+                isChange: false,
               },
             ])
           }
@@ -475,7 +487,7 @@ function PaymentEditor({
           <Select
             label={undefined}
             placeholder={t("payment_type")}
-            data={paymentTypes.map((p) => ({ value: String(p.id), label: payName(p.name) }))}
+            data={methodTypes.map((p) => ({ value: String(p.id), label: payName(p.name) }))}
             value={r.ptId}
             onChange={(v) => pickType(r.key, v)}
             style={{ flex: 1.4 }}
@@ -491,6 +503,16 @@ function PaymentEditor({
           <Box style={{ flex: 1 }}>
             <MoneyInput value={r.amount} onChange={(a) => update(r.key, { amount: a })} placeholder="0" />
           </Box>
+          <Tooltip label={t("money_back")}>
+            <ActionIcon
+              variant={r.isChange ? "filled" : "subtle"}
+              color="orange"
+              onClick={() => toggleChange(r.key, !r.isChange)}
+              aria-label={t("money_back")}
+            >
+              <IconArrowBackUp size={16} />
+            </ActionIcon>
+          </Tooltip>
           <Button size="xs" variant="default" onClick={() => fill(r)}>
             {t("fill")}
           </Button>
@@ -605,7 +627,10 @@ function CreateOrderModal({
           key: nextKey(),
           ptId: String(p.payment_type_id),
           currencyId: String(p.currency_id),
-          amount: String(p.amount),
+          // change lines are stored negative — show the positive amount and mark
+          // the row as money-back
+          amount: String(Math.abs(Number(p.amount))),
+          isChange: Number(p.amount) < 0,
         }))
       : [],
   );
@@ -635,12 +660,14 @@ function CreateOrderModal({
   // start the paid path with one payment line filling the total
   useEffect(() => {
     if (status === "paid" && payments.length === 0 && paymentTypes.length) {
+      const method = paymentTypes.find((p) => !p.is_change) ?? paymentTypes[0];
       setPayments([
         {
           key: nextKey(),
-          ptId: String(paymentTypes[0].id),
+          ptId: String(method.id),
           currencyId: baseCurrency ? String(baseCurrency.id) : null,
           amount: "",
+          isChange: false,
         },
       ]);
     }
@@ -655,8 +682,7 @@ function CreateOrderModal({
     if (status === "paid") {
       const allocated = payments.reduce((a, r) => {
         const rate = r.currencyId ? rateById[Number(r.currencyId)] ?? 0 : 0;
-        const isChange = paymentTypes.find((p) => String(p.id) === r.ptId)?.is_change;
-        return a + (isChange ? -1 : 1) * (Number(r.amount) || 0) * rate;
+        return a + (r.isChange ? -1 : 1) * (Number(r.amount) || 0) * rate;
       }, 0);
       if (Math.abs(allocated - totalSom) > 0.5 * payments.length + 0.5) {
         return notifyError(new Error(t("pay_sum_msg", { a: money(allocated), b: money(totalSom) })));
@@ -682,6 +708,7 @@ function CreateOrderModal({
                 payment_type_id: Number(r.ptId),
                 currency_id: Number(r.currencyId),
                 amount: r.amount,
+                is_change: r.isChange,
               }))
           : [],
       status,
@@ -938,9 +965,12 @@ function SettleModal({
   const [rows, setRows] = useState<PayRow[]>([
     {
       key: nextKey(),
-      ptId: paymentTypes[0] ? String(paymentTypes[0].id) : null,
+      ptId: (paymentTypes.find((p) => !p.is_change) ?? paymentTypes[0])
+        ? String((paymentTypes.find((p) => !p.is_change) ?? paymentTypes[0]).id)
+        : null,
       currencyId: baseCurrency ? String(baseCurrency.id) : null,
       amount: "",
+      isChange: false,
     },
   ]);
   const [busy, setBusy] = useState(false);
@@ -958,6 +988,7 @@ function SettleModal({
             payment_type_id: Number(r.ptId),
             currency_id: Number(r.currencyId),
             amount: r.amount,
+            is_change: r.isChange,
           })),
         },
       });

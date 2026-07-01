@@ -505,6 +505,7 @@ class ExpenseRepo(_SessionRepo):
         self,
         amount: Decimal,
         currency_id: int,
+        payment_type_id: int,
         note: Optional[str],
         admin_id: int,
         category_id: Optional[int] = None,
@@ -512,6 +513,13 @@ class ExpenseRepo(_SessionRepo):
         currency = await self._currencies.get(currency_id)
         if currency is None:
             raise ExpenseError(f"currency {currency_id} not found")
+        pt = await self.session.get(PaymentType, payment_type_id)
+        if pt is None:
+            raise ExpenseError(f"payment type {payment_type_id} not found")
+        if pt.is_debt or pt.is_cashback or pt.is_change:
+            # only real cash-outs (Cash / Card / transfer) make sense for an
+            # expense; debt/cashback/change types don't move the till this way.
+            raise ExpenseError(f"'{pt.name}' cannot be used for an expense")
         amount = Decimal(amount).quantize(Decimal("0.01"))
         if amount <= 0:
             raise ExpenseError("amount must be positive")
@@ -522,6 +530,7 @@ class ExpenseRepo(_SessionRepo):
             currency_id=currency_id, amount=amount, rate=Decimal(rate),
             amount_base=(amount * Decimal(rate)).quantize(Decimal("0.01")),
             note=note, admin_id=admin_id, category_id=category_id,
+            payment_type_id=payment_type_id,
         )
         self.session.add(exp)
         await self.session.flush()
@@ -622,9 +631,15 @@ class OrderRepo(_SessionRepo):
             if rate is None:
                 raise OrderError(f"no exchange rate set for {currency.code}")
             amount_base = (amount * Decimal(rate)).quantize(Decimal("0.01"))
-            if pt.is_change:
-                # money handed back to the client — stored negative so it
-                # subtracts from the paid total (e.g. 100 cash − 30 change = 70)
+            # a change line is money handed back: driven per-line now (chosen
+            # Cash/Card method + a "money back" flag), with the legacy is_change
+            # payment type kept as a fallback trigger for old data.
+            is_change = bool(line.get("is_change")) or pt.is_change
+            if is_change:
+                if pt.is_debt or pt.is_cashback:
+                    raise OrderError("change cannot come from a debt or cashback type")
+                # stored negative so it subtracts from the paid total and nets
+                # out of the method's till (e.g. 100 cash − 30 change = 70)
                 amount = -amount
                 amount_base = -amount_base
             payment_rows.append(OrderPayment(
@@ -922,6 +937,16 @@ class AnalyticsRepo(_SessionRepo):
             stmt = stmt.where(Order.paid_at < date_to)
         return stmt
 
+    def _expense_scope(self, stmt, date_from, date_to):
+        # expenses are windowed by their own date (created_at), not order paid_at,
+        # and only attributed ones (with a payment type) net out of the till
+        stmt = stmt.where(Expense.payment_type_id.isnot(None))
+        if date_from is not None:
+            stmt = stmt.where(Expense.created_at >= date_from)
+        if date_to is not None:
+            stmt = stmt.where(Expense.created_at < date_to)
+        return stmt
+
     async def summary(self, date_from=None, date_to=None) -> dict:
         # revenue = sum of order totals; cost = sum(cargo_price*qty) over items;
         # the cost join applies the same date window through the order.
@@ -1074,8 +1099,9 @@ class AnalyticsRepo(_SessionRepo):
 
     async def payment_breakdown(self, date_from=None, date_to=None) -> list[dict]:
         # Grouped by payment type only; totals in base so'm (a common unit), since
-        # one type may collect across currencies. Currencies have their own
-        # breakdown (see currency_breakdown).
+        # one type may collect across currencies. Expenses paid via a type are
+        # netted out so the total reflects money in − out. Currencies have their
+        # own breakdown (see currency_breakdown).
         total = func.coalesce(func.sum(OrderPayment.amount_base), 0).label("total")
         cnt = func.count(func.distinct(OrderPayment.order_id)).label("order_count")
         stmt = self._scope(
@@ -1083,27 +1109,50 @@ class AnalyticsRepo(_SessionRepo):
             .select_from(OrderPayment)
             .join(Order, OrderPayment.order_id == Order.id)
             .join(PaymentType, OrderPayment.payment_type_id == PaymentType.id)
-            .group_by(PaymentType.id, PaymentType.name, PaymentType.is_debt)
-            .order_by(total.desc()),
+            .group_by(PaymentType.id, PaymentType.name, PaymentType.is_debt),
             date_from,
             date_to,
         )
         rows = await self.session.execute(stmt)
-        return [
-            {
+        agg: dict[int, dict] = {}
+        for pid, name, is_debt, t, c in rows.all():
+            agg[pid] = {
                 "payment_type_id": pid,
                 "name": name,
                 "is_debt": bool(is_debt),
                 "total": Decimal(t),
                 "order_count": int(c),
             }
-            for pid, name, is_debt, t, c in rows.all()
-        ]
+        # subtract expenses attributed to each payment type
+        exp_stmt = self._expense_scope(
+            select(
+                PaymentType.id, PaymentType.name, PaymentType.is_debt,
+                func.coalesce(func.sum(Expense.amount_base), 0),
+            )
+            .select_from(Expense)
+            .join(PaymentType, Expense.payment_type_id == PaymentType.id)
+            .group_by(PaymentType.id, PaymentType.name, PaymentType.is_debt),
+            date_from,
+            date_to,
+        )
+        for pid, name, is_debt, exp_total in (await self.session.execute(exp_stmt)).all():
+            row = agg.get(pid)
+            if row is None:
+                row = agg[pid] = {
+                    "payment_type_id": pid,
+                    "name": name,
+                    "is_debt": bool(is_debt),
+                    "total": Decimal(0),
+                    "order_count": 0,
+                }
+            row["total"] -= Decimal(exp_total)
+        return sorted(agg.values(), key=lambda r: r["total"], reverse=True)
 
     async def currency_breakdown(self, date_from=None, date_to=None) -> list[dict]:
         # Per-currency × payment-method totals: original units (sum amount) + base
-        # so'm. The frontend groups these by currency to show each currency split
-        # by method (Cash / Card / …).
+        # so'm. Expenses paid via a method are netted out so each bucket reflects
+        # money in − out. The frontend groups these by currency to show each
+        # currency split by method (Cash / Card / …).
         total = func.coalesce(func.sum(OrderPayment.amount), 0).label("total")
         total_base = func.coalesce(func.sum(OrderPayment.amount_base), 0).label("total_base")
         cnt = func.count(func.distinct(OrderPayment.order_id)).label("order_count")
@@ -1117,14 +1166,14 @@ class AnalyticsRepo(_SessionRepo):
             .join(Order, OrderPayment.order_id == Order.id)
             .join(Currency, OrderPayment.currency_id == Currency.id)
             .join(PaymentType, OrderPayment.payment_type_id == PaymentType.id)
-            .group_by(Currency.id, Currency.code, PaymentType.id, PaymentType.name)
-            .order_by(Currency.code, total.desc()),
+            .group_by(Currency.id, Currency.code, PaymentType.id, PaymentType.name),
             date_from,
             date_to,
         )
         rows = await self.session.execute(stmt)
-        return [
-            {
+        agg: dict[tuple[int, int], dict] = {}
+        for cid, code, pid, name, t, tb, c in rows.all():
+            agg[(cid, pid)] = {
                 "currency_id": cid,
                 "currency_code": code,
                 "payment_type_id": pid,
@@ -1133,8 +1182,38 @@ class AnalyticsRepo(_SessionRepo):
                 "total_base": Decimal(tb),
                 "order_count": int(c),
             }
-            for cid, code, pid, name, t, tb, c in rows.all()
-        ]
+        # subtract expenses attributed to each (currency, payment type)
+        exp_stmt = self._expense_scope(
+            select(
+                Currency.id, Currency.code,
+                PaymentType.id, PaymentType.name,
+                func.coalesce(func.sum(Expense.amount), 0),
+                func.coalesce(func.sum(Expense.amount_base), 0),
+            )
+            .select_from(Expense)
+            .join(Currency, Expense.currency_id == Currency.id)
+            .join(PaymentType, Expense.payment_type_id == PaymentType.id)
+            .group_by(Currency.id, Currency.code, PaymentType.id, PaymentType.name),
+            date_from,
+            date_to,
+        )
+        for cid, code, pid, name, et, etb in (await self.session.execute(exp_stmt)).all():
+            row = agg.get((cid, pid))
+            if row is None:
+                row = agg[(cid, pid)] = {
+                    "currency_id": cid,
+                    "currency_code": code,
+                    "payment_type_id": pid,
+                    "name": name,
+                    "total": Decimal(0),
+                    "total_base": Decimal(0),
+                    "order_count": 0,
+                }
+            row["total"] -= Decimal(et)
+            row["total_base"] -= Decimal(etb)
+        return sorted(
+            agg.values(), key=lambda r: (r["currency_code"], -r["total"])
+        )
 
     async def debt(self, date_from=None, date_to=None) -> dict:
         # Total outstanding debt is point-in-time (current balances), not windowed.
