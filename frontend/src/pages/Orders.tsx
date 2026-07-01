@@ -447,13 +447,19 @@ function PaymentEditor({
 
   const fill = (r: PayRow) => {
     const rate = r.currencyId ? rateById[Number(r.currencyId)] ?? 1 : 1;
+    // signed base total of the OTHER rows (change/money-back rows subtract)
     const others = rows
       .filter((x) => x.key !== r.key)
       .reduce((a, x) => {
         const rt = x.currencyId ? rateById[Number(x.currencyId)] ?? 0 : 0;
-        return a + (Number(x.amount) || 0) * rt;
+        const sign = isChangeRow(x) ? -1 : 1;
+        return a + sign * (Number(x.amount) || 0) * rt;
       }, 0);
-    const need = Math.max(0, totalSom - others) / (rate || 1);
+    // pick this row's amount so the payments balance to the total. For a normal
+    // row that's the remaining due; for a change row it's the overpaid excess to
+    // hand back. Clamp at 0 (nothing to fill when it would go negative).
+    const sign = isChangeRow(r) ? -1 : 1;
+    const need = Math.max(0, (totalSom - others) / (sign * (rate || 1)));
     update(r.key, { amount: need.toFixed(2) });
   };
 
