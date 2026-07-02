@@ -43,6 +43,14 @@ interface FormState {
 
 const emptyForm: FormState = { name: '', phone: '+998 ', birth_date: null };
 
+// True when the client's birthday (month/day) is today.
+function isBirthdayToday(birth_date: string | null): boolean {
+  if (!birth_date) return false;
+  const b = dayjs(birth_date);
+  const now = dayjs();
+  return b.month() === now.month() && b.date() === now.date();
+}
+
 export function Clients() {
   const t = useT();
   const { data, loading, reload } = useList<Client>('/clients');
@@ -166,7 +174,14 @@ export function Clients() {
             <Table.Tbody>
               {filtered.map((c) => (
                 <Table.Tr key={c.id}>
-                  <Table.Td>{c.name}</Table.Td>
+                  <Table.Td>
+                    {c.name}
+                    {isBirthdayToday(c.birth_date) && (
+                      <Text component="span" title={t('birthday_today')} ml={4}>
+                        👑
+                      </Text>
+                    )}
+                  </Table.Td>
                   <Table.Td>{c.phone_number}</Table.Td>
                   <Table.Td>{fmtDate(c.birth_date)}</Table.Td>
                   <Table.Td ta="right">

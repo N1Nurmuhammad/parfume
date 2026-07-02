@@ -340,6 +340,28 @@ class PaymentTypeRepo(_SessionRepo):
         await self.session.flush()
         return pt
 
+    async def reference_count(self, payment_type_id: int) -> int:
+        """How many records (order payments + expenses) still point at this type.
+
+        Guards deletion: a payment type referenced by history can't be removed
+        without breaking those FKs / losing the record of how orders were paid.
+        """
+        op_count = (
+            await self.session.execute(
+                select(func.count())
+                .select_from(OrderPayment)
+                .where(OrderPayment.payment_type_id == payment_type_id)
+            )
+        ).scalar_one()
+        exp_count = (
+            await self.session.execute(
+                select(func.count())
+                .select_from(Expense)
+                .where(Expense.payment_type_id == payment_type_id)
+            )
+        ).scalar_one()
+        return int(op_count) + int(exp_count)
+
     async def delete(self, payment_type_id: int) -> bool:
         pt = await self.get(payment_type_id)
         if pt is None:
@@ -533,6 +555,49 @@ class ExpenseRepo(_SessionRepo):
             payment_type_id=payment_type_id,
         )
         self.session.add(exp)
+        await self.session.flush()
+        return exp
+
+    async def update(
+        self,
+        expense_id: int,
+        amount: Decimal,
+        currency_id: int,
+        payment_type_id: int,
+        note: Optional[str],
+        category_id: Optional[int] = None,
+    ) -> Optional[Expense]:
+        exp = await self.get(expense_id)
+        if exp is None:
+            return None
+        currency = await self._currencies.get(currency_id)
+        if currency is None:
+            raise ExpenseError(f"currency {currency_id} not found")
+        pt = await self.session.get(PaymentType, payment_type_id)
+        if pt is None:
+            raise ExpenseError(f"payment type {payment_type_id} not found")
+        if pt.is_debt or pt.is_cashback or pt.is_change:
+            raise ExpenseError(f"'{pt.name}' cannot be used for an expense")
+        amount = Decimal(amount).quantize(Decimal("0.01"))
+        if amount <= 0:
+            raise ExpenseError("amount must be positive")
+        # keep the original rate when the currency is unchanged; otherwise resolve
+        # a fresh rate on the expense's own date so historical figures stay right.
+        if currency_id == exp.currency_id:
+            rate = exp.rate
+        else:
+            rate = await self._currencies.resolve_rate(
+                currency_id, exp.created_at.date()
+            )
+            if rate is None:
+                raise ExpenseError(f"no exchange rate set for {currency.code}")
+        exp.currency_id = currency_id
+        exp.amount = amount
+        exp.rate = Decimal(rate)
+        exp.amount_base = (amount * Decimal(rate)).quantize(Decimal("0.01"))
+        exp.note = note
+        exp.category_id = category_id
+        exp.payment_type_id = payment_type_id
         await self.session.flush()
         return exp
 
@@ -1147,6 +1212,14 @@ class AnalyticsRepo(_SessionRepo):
                 }
             row["total"] -= Decimal(exp_total)
         return sorted(agg.values(), key=lambda r: r["total"], reverse=True)
+
+    async def cashbox(self) -> list[dict]:
+        # Current money actually sitting in each till, in base so'm. Unlike the
+        # windowed payment_breakdown, this is all-time (time-independent):
+        # income − expenses over the whole history = what's in the cashbox now.
+        # Debt payment types are excluded — money owed by clients isn't held cash.
+        rows = await self.payment_breakdown(None, None)
+        return [r for r in rows if not r["is_debt"]]
 
     async def currency_breakdown(self, date_from=None, date_to=None) -> list[dict]:
         # Per-currency × payment-method totals: original units (sum amount) + base

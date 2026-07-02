@@ -57,6 +57,26 @@ async def create_expense(
     return _serialize(await repo.expenses.get(exp.id))
 
 
+@router.put("/{expense_id}", response_model=ExpenseOut)
+async def update_expense(
+    expense_id: int,
+    body: ExpenseIn,
+    repo: BaseRepo = Depends(get_repo),
+) -> ExpenseOut:
+    try:
+        exp = await repo.expenses.update(
+            expense_id, body.amount, body.currency_id, body.payment_type_id,
+            body.note, body.category_id,
+        )
+    except ExpenseError as exc:
+        await repo.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+    if exp is None:
+        raise HTTPException(status_code=404, detail="expense not found")
+    await repo.commit()
+    return _serialize(await repo.expenses.get(exp.id))
+
+
 @router.delete("/{expense_id}", status_code=204)
 async def delete_expense(
     expense_id: int, repo: BaseRepo = Depends(get_repo)

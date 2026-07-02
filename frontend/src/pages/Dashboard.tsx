@@ -30,6 +30,7 @@ import type {
   TimeseriesPoint,
   TopProduct,
   PaymentBreakdown,
+  CashboxLine,
   CurrencyBreakdown,
   CurrencyRate,
   DebtReport,
@@ -123,6 +124,7 @@ export function Dashboard() {
   const [products, setProducts] = useState<TopProduct[]>([]);
   const [breakdown, setBreakdown] = useState<PaymentBreakdown[]>([]);
   const [currencyBreakdown, setCurrencyBreakdown] = useState<CurrencyBreakdown[]>([]);
+  const [cashbox, setCashbox] = useState<CashboxLine[]>([]);
   const [debt, setDebt] = useState<DebtReport | null>(null);
 
   const query = useMemo(() => {
@@ -165,6 +167,18 @@ export function Dashboard() {
       alive = false;
     };
   }, [query]);
+
+  // Cashbox balance is time-independent (all-time income − expenses per till),
+  // so it's fetched once and NOT re-queried when the date range changes.
+  useEffect(() => {
+    let alive = true;
+    api<CashboxLine[]>("/analytics/cashbox")
+      .then((c) => alive && setCashbox(c))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const setPresetRange = (p: Preset) => {
     setPreset(p);
@@ -226,6 +240,18 @@ export function Dashboard() {
     }
     return [...m.values()];
   })();
+
+  // one segment per till, mirroring the "By payment type" donut. Non-positive
+  // nets (a till that paid out more than it took in) can't render in a donut,
+  // so they're dropped from the chart — the total below still counts them.
+  const cashboxTotal = cashbox.reduce((a, b) => a + Number(b.total), 0);
+  const cashboxDonut = cashbox
+    .map((c, i) => ({
+      name: payName(c.name),
+      value: Number(c.total),
+      color: DONUT_COLORS[i % DONUT_COLORS.length],
+    }))
+    .filter((d) => d.value > 0);
 
   const presets: { key: Preset; label: string }[] = [
     { key: "today", label: t("today") },
@@ -465,6 +491,57 @@ export function Dashboard() {
                       </Stack>
                     </div>
                   ))}
+                </Stack>
+              )}
+            </Card>
+
+            <Card withBorder radius="md" padding="md">
+              <Text fw={600} mb="md">
+                {t("cashbox")}
+              </Text>
+              {cashboxDonut.length === 0 ? (
+                <Text c="dimmed" ta="center" py="xl">
+                  —
+                </Text>
+              ) : (
+                <Stack gap="sm">
+                  <Center>
+                    <DonutChart
+                      h={220}
+                      data={cashboxDonut}
+                      withLabelsLine
+                      withTooltip
+                      tooltipDataSource="segment"
+                      chartLabel={mainMoneyC(cashboxTotal)}
+                      valueFormatter={(v) => mainMoney(v)}
+                    />
+                  </Center>
+                  {(() => {
+                    const tot = cashboxDonut.reduce((a, b) => a + b.value, 0) || 1;
+                    return (
+                      <Stack gap={4}>
+                        {cashboxDonut.map((d) => (
+                          <Group key={d.name} justify="space-between" gap="xs" wrap="nowrap">
+                            <Group gap={6} wrap="nowrap">
+                              <ColorSwatch
+                                color={`var(--mantine-color-${d.color.replace(".", "-")})`}
+                                size={10}
+                              />
+                              <Text size="sm">{d.name}</Text>
+                            </Group>
+                            <Group gap="xs" wrap="nowrap">
+                              <Text size="sm" fw={600}>
+                                {((d.value / tot) * 100).toFixed(1)}%
+                              </Text>
+                              <Text size="xs" c="dimmed" className="money-num">
+                                {mainMoneyC(d.value)}
+                              </Text>
+                            </Group>
+                          </Group>
+                        ))}
+                      </Stack>
+                    );
+                  })()}
                 </Stack>
               )}
             </Card>

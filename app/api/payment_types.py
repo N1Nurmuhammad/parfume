@@ -59,6 +59,19 @@ async def update_payment_type(
 async def delete_payment_type(
     payment_type_id: int, repo: BaseRepo = Depends(get_repo)
 ) -> None:
-    if not await repo.payment_types.delete(payment_type_id):
+    pt = await repo.payment_types.get(payment_type_id)
+    if pt is None:
         raise HTTPException(status_code=404, detail="payment type not found")
+    # make sure nothing still references it before deleting — otherwise we'd
+    # either hit an FK error or orphan the payment history of past orders.
+    refs = await repo.payment_types.reference_count(payment_type_id)
+    if refs:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Cannot delete '{pt.name}': {refs} record(s) still use it. "
+                "It stays for historical accuracy."
+            ),
+        )
+    await repo.payment_types.delete(payment_type_id)
     await repo.commit()

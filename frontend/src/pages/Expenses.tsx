@@ -13,7 +13,7 @@ import {
   Badge,
   Tooltip,
 } from "@mantine/core";
-import { IconPlus, IconTrash, IconTag } from "@tabler/icons-react";
+import { IconPlus, IconTrash, IconTag, IconPencil } from "@tabler/icons-react";
 import { api } from "../api/client";
 import type { Expense, Currency, ExpenseCategory, PaymentType } from "../api/types";
 import { useList } from "../lib/useList";
@@ -42,6 +42,7 @@ export function Expenses() {
     useList<ExpenseCategory>("/expense-categories");
 
   const [opened, setOpened] = useState(false);
+  const [editId, setEditId] = useState<number | null>(null);
   const [amount, setAmount] = useState("");
   const [currencyId, setCurrencyId] = useState<string | null>(null);
   const [paymentTypeId, setPaymentTypeId] = useState<string | null>(null);
@@ -75,6 +76,7 @@ export function Expenses() {
   );
 
   function openModal() {
+    setEditId(null);
     setAmount("");
     setCurrencyId(currencies.length ? String(currencies[0].id) : null);
     setPaymentTypeId(paymentTypeOptions.length ? paymentTypeOptions[0].value : null);
@@ -83,11 +85,21 @@ export function Expenses() {
     setOpened(true);
   }
 
+  function openEdit(e: Expense) {
+    setEditId(e.id);
+    setAmount(String(e.amount));
+    setCurrencyId(String(e.currency_id));
+    setPaymentTypeId(e.payment_type_id ? String(e.payment_type_id) : null);
+    setCategoryId(e.category_id ? String(e.category_id) : null);
+    setNote(e.note ?? "");
+    setOpened(true);
+  }
+
   async function save() {
     setSaving(true);
     try {
-      await api("/expenses", {
-        method: "POST",
+      await api(editId ? `/expenses/${editId}` : "/expenses", {
+        method: editId ? "PUT" : "POST",
         body: {
           amount: amount || "0",
           currency_id: Number(currencyId),
@@ -200,14 +212,23 @@ export function Expenses() {
                   <Table.Td>{e.note || "—"}</Table.Td>
                   <Table.Td>{e.created_by}</Table.Td>
                   <Table.Td>
-                    <ActionIcon
-                      color="red"
-                      variant="subtle"
-                      onClick={() => remove(e.id)}
-                      aria-label={t("delete")}
-                    >
-                      <IconTrash size={16} />
-                    </ActionIcon>
+                    <Group gap={4} wrap="nowrap">
+                      <ActionIcon
+                        variant="subtle"
+                        onClick={() => openEdit(e)}
+                        aria-label={t("edit")}
+                      >
+                        <IconPencil size={16} />
+                      </ActionIcon>
+                      <ActionIcon
+                        color="red"
+                        variant="subtle"
+                        onClick={() => remove(e.id)}
+                        aria-label={t("delete")}
+                      >
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Group>
                   </Table.Td>
                 </Table.Tr>
               ))}
@@ -221,7 +242,11 @@ export function Expenses() {
         )}
       </Card>
 
-      <Modal opened={opened} onClose={() => setOpened(false)} title={t("add_expense")}>
+      <Modal
+        opened={opened}
+        onClose={() => setOpened(false)}
+        title={editId ? t("edit_expense") : t("add_expense")}
+      >
         <Stack>
           <MoneyInput label={t("amount")} required value={amount} onChange={setAmount} />
           <Select
