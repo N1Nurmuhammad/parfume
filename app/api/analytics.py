@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends
 
 from ..database.repo import BaseRepo, get_repo
 from ..schemas import (
-    CashboxLine,
     CurrencyBreakdown,
     DebtOut,
     DebtorOut,
@@ -71,10 +70,11 @@ async def payment_breakdown(
     ]
 
 
-@router.get("/cashbox", response_model=list[CashboxLine])
-async def cashbox(repo: BaseRepo = Depends(get_repo)) -> list[CashboxLine]:
-    # Time-independent: how much money is currently held in each till.
-    return [CashboxLine(**c) for c in await repo.analytics.cashbox()]
+@router.get("/cashbox", response_model=list[CurrencyBreakdown])
+async def cashbox(repo: BaseRepo = Depends(get_repo)) -> list[CurrencyBreakdown]:
+    # Time-independent: how much money is currently held in each till,
+    # per currency × method (same shape as the currency breakdown).
+    return [CurrencyBreakdown(**c) for c in await repo.analytics.cashbox()]
 
 
 @router.get("/currency-breakdown", response_model=list[CurrencyBreakdown])

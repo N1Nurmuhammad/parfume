@@ -30,7 +30,6 @@ import type {
   TimeseriesPoint,
   TopProduct,
   PaymentBreakdown,
-  CashboxLine,
   CurrencyBreakdown,
   CurrencyRate,
   DebtReport,
@@ -124,7 +123,7 @@ export function Dashboard() {
   const [products, setProducts] = useState<TopProduct[]>([]);
   const [breakdown, setBreakdown] = useState<PaymentBreakdown[]>([]);
   const [currencyBreakdown, setCurrencyBreakdown] = useState<CurrencyBreakdown[]>([]);
-  const [cashbox, setCashbox] = useState<CashboxLine[]>([]);
+  const [cashbox, setCashbox] = useState<CurrencyBreakdown[]>([]);
   const [debt, setDebt] = useState<DebtReport | null>(null);
 
   const query = useMemo(() => {
@@ -172,7 +171,7 @@ export function Dashboard() {
   // so it's fetched once and NOT re-queried when the date range changes.
   useEffect(() => {
     let alive = true;
-    api<CashboxLine[]>("/analytics/cashbox")
+    api<CurrencyBreakdown[]>("/analytics/cashbox")
       .then((c) => alive && setCashbox(c))
       .catch(() => {});
     return () => {
@@ -241,17 +240,33 @@ export function Dashboard() {
     return [...m.values()];
   })();
 
-  // one segment per till, mirroring the "By payment type" donut. Non-positive
-  // nets (a till that paid out more than it took in) can't render in a donut,
-  // so they're dropped from the chart — the total below still counts them.
-  const cashboxTotal = cashbox.reduce((a, b) => a + Number(b.total), 0);
-  const cashboxDonut = cashbox
-    .map((c, i) => ({
-      name: payName(c.name),
-      value: Number(c.total),
-      color: DONUT_COLORS[i % DONUT_COLORS.length],
-    }))
-    .filter((d) => d.value > 0);
+  // group cashbox holdings by currency → Cash / Card / other, identical to the
+  // cashier-reconciliation card (but all-time / time-independent).
+  const cashboxGroups = (() => {
+    const m = new Map<
+      string,
+      {
+        code: string;
+        cash: number;
+        card: number;
+        others: { name: string; total: number }[];
+        base: number;
+      }
+    >();
+    for (const r of cashbox) {
+      if (!m.has(r.currency_code)) {
+        m.set(r.currency_code, { code: r.currency_code, cash: 0, card: 0, others: [], base: 0 });
+      }
+      const g = m.get(r.currency_code)!;
+      const nm = r.name.trim().toLowerCase();
+      const amt = Number(r.total);
+      if (nm === "cash") g.cash += amt;
+      else if (nm === "card") g.card += amt;
+      else g.others.push({ name: r.name, total: amt });
+      g.base += Number(r.total_base);
+    }
+    return [...m.values()];
+  })();
 
   const presets: { key: Preset; label: string }[] = [
     { key: "today", label: t("today") },
@@ -499,49 +514,50 @@ export function Dashboard() {
               <Text fw={600} mb="md">
                 {t("cashbox")}
               </Text>
-              {cashboxDonut.length === 0 ? (
+              {cashboxGroups.length === 0 ? (
                 <Text c="dimmed" ta="center" py="xl">
                   —
                 </Text>
               ) : (
-                <Stack gap="sm">
-                  <Center>
-                    <DonutChart
-                      h={220}
-                      data={cashboxDonut}
-                      withLabelsLine
-                      withTooltip
-                      tooltipDataSource="segment"
-                      chartLabel={mainMoneyC(cashboxTotal)}
-                      valueFormatter={(v) => mainMoney(v)}
-                    />
-                  </Center>
-                  {(() => {
-                    const tot = cashboxDonut.reduce((a, b) => a + b.value, 0) || 1;
-                    return (
-                      <Stack gap={4}>
-                        {cashboxDonut.map((d) => (
-                          <Group key={d.name} justify="space-between" gap="xs" wrap="nowrap">
-                            <Group gap={6} wrap="nowrap">
-                              <ColorSwatch
-                                color={`var(--mantine-color-${d.color.replace(".", "-")})`}
-                                size={10}
-                              />
-                              <Text size="sm">{d.name}</Text>
-                            </Group>
-                            <Group gap="xs" wrap="nowrap">
-                              <Text size="sm" fw={600}>
-                                {((d.value / tot) * 100).toFixed(1)}%
-                              </Text>
-                              <Text size="xs" c="dimmed" className="money-num">
-                                {mainMoneyC(d.value)}
-                              </Text>
-                            </Group>
+                <Stack gap="md">
+                  {cashboxGroups.map((g) => (
+                    <div key={g.code}>
+                      <Group justify="space-between" mb={4} wrap="nowrap">
+                        <Badge variant="light">{g.code}</Badge>
+                        <Text size="xs" c="dimmed" className="money-num">
+                          ≈ {mainMoneyC(g.base)}
+                        </Text>
+                      </Group>
+                      <Stack gap={4} pl="sm">
+                        <Group justify="space-between" gap="xs" wrap="nowrap">
+                          <Text size="sm" fw={600}>
+                            💵 {t("pt_cash")}
+                          </Text>
+                          <Text size="sm" fw={600} className="money-num">
+                            {moneyCur(g.cash, g.code)} {g.code}
+                          </Text>
+                        </Group>
+                        <Group justify="space-between" gap="xs" wrap="nowrap">
+                          <Text size="sm" fw={600}>
+                            💳 {t("pt_card")}
+                          </Text>
+                          <Text size="sm" fw={600} className="money-num">
+                            {moneyCur(g.card, g.code)} {g.code}
+                          </Text>
+                        </Group>
+                        {g.others.map((o) => (
+                          <Group key={o.name} justify="space-between" gap="xs" wrap="nowrap">
+                            <Text size="sm" c="dimmed">
+                              {payName(o.name)}
+                            </Text>
+                            <Text size="sm" c="dimmed" className="money-num">
+                              {moneyCur(o.total, g.code)} {g.code}
+                            </Text>
                           </Group>
                         ))}
                       </Stack>
-                    );
-                  })()}
+                    </div>
+                  ))}
                 </Stack>
               )}
             </Card>

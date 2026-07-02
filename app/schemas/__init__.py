@@ -1,7 +1,6 @@
 """Schemas package: Pydantic request/response contract, split by concern."""
 
 from .analytics import (
-    CashboxLine,
     CurrencyBreakdown,
     DebtOut,
     DebtorOut,
@@ -66,7 +65,6 @@ __all__ = [
     "OrderPaymentIn",
     "OrderPaymentOut",
     "OrderSettle",
-    "CashboxLine",
     "CurrencyBreakdown",
     "PaymentBreakdown",
     "PaymentTypeIn",

@@ -47,14 +47,6 @@ class PaymentBreakdown(BaseModel):
     order_count: int
 
 
-class CashboxLine(BaseModel):
-    payment_type_id: int
-    name: str
-    is_debt: bool
-    total: Decimal  # base so'm currently held (all-time income − expenses)
-    order_count: int
-
-
 class CurrencyBreakdown(BaseModel):
     currency_id: int
     currency_code: str

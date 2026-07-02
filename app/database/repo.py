@@ -1214,12 +1214,21 @@ class AnalyticsRepo(_SessionRepo):
         return sorted(agg.values(), key=lambda r: r["total"], reverse=True)
 
     async def cashbox(self) -> list[dict]:
-        # Current money actually sitting in each till, in base so'm. Unlike the
-        # windowed payment_breakdown, this is all-time (time-independent):
-        # income − expenses over the whole history = what's in the cashbox now.
-        # Debt payment types are excluded — money owed by clients isn't held cash.
-        rows = await self.payment_breakdown(None, None)
-        return [r for r in rows if not r["is_debt"]]
+        # Money actually sitting in each till, per currency × method — same shape
+        # as currency_breakdown (so the UI can reuse the cashier-reconciliation
+        # layout) but ALL-TIME (time-independent): income − expenses over the
+        # whole history = what's in the cashbox now. Debt methods are excluded —
+        # money owed by clients isn't cash held.
+        rows = await self.currency_breakdown(None, None)
+        debt_ids = {
+            pid
+            for (pid,) in (
+                await self.session.execute(
+                    select(PaymentType.id).where(PaymentType.is_debt)
+                )
+            ).all()
+        }
+        return [r for r in rows if r["payment_type_id"] not in debt_ids]
 
     async def currency_breakdown(self, date_from=None, date_to=None) -> list[dict]:
         # Per-currency × payment-method totals: original units (sum amount) + base

@@ -203,14 +203,6 @@ export interface PaymentBreakdown {
   order_count: number;
 }
 
-export interface CashboxLine {
-  payment_type_id: number;
-  name: string;
-  is_debt: boolean;
-  total: Money; // base so'm currently held (all-time income − expenses)
-  order_count: number;
-}
-
 export interface CurrencyBreakdown {
   currency_id: number;
   currency_code: string;
